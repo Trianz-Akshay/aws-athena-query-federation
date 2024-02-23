@@ -46,6 +46,7 @@ import com.amazonaws.athena.connector.lambda.metadata.optimizations.pushdown.Com
 import com.amazonaws.athena.connector.lambda.metadata.optimizations.pushdown.FilterPushdownSubType;
 import com.amazonaws.athena.connector.lambda.metadata.optimizations.pushdown.LimitPushdownSubType;
 import com.amazonaws.athena.connector.lambda.metadata.optimizations.pushdown.TopNPushdownSubType;
+import com.amazonaws.athena.connectors.google.bigquery.ptf.BigQueryQueryPassthrough;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Dataset;
@@ -77,6 +78,7 @@ public class BigQueryMetadataHandler
 {
     private static final Logger logger = LoggerFactory.getLogger(BigQueryMetadataHandler.class);
     private final String projectName = configOptions.get(BigQueryConstants.GCP_PROJECT_ID);
+    BigQueryQueryPassthrough bigQueryQueryPassthrough = new BigQueryQueryPassthrough();
 
     BigQueryMetadataHandler(java.util.Map<String, String> configOptions)
     {
@@ -102,6 +104,8 @@ public class BigQueryMetadataHandler
         capabilities.put(DataSourceOptimizations.SUPPORTS_LIMIT_PUSHDOWN.withSupportedSubTypes(
                 LimitPushdownSubType.INTEGER_CONSTANT
         ));
+
+        capabilities.put(bigQueryQueryPassthrough.getFunctionSignature(), bigQueryQueryPassthrough.getQueryPassthroughCapabilities());
 
         return new GetDataSourceCapabilitiesResponse(request.getCatalogName(), capabilities.build());
     }
@@ -170,7 +174,7 @@ public class BigQueryMetadataHandler
     {
         logger.info("doGetTable called with request {}. Resolved projectName: {}", getTableRequest.getCatalogName(), projectName);
         final Schema tableSchema = getSchema(getTableRequest.getTableName().getSchemaName(),
-                getTableRequest.getTableName().getTableName());
+                getTableRequest.getTableName().getTableName(), getTableRequest);
         return new GetTableResponse(getTableRequest.getCatalogName(), getTableRequest.getTableName(), tableSchema);
     }
 
@@ -208,13 +212,20 @@ public class BigQueryMetadataHandler
      *
      * @param datasetName
      * @param tableName
+     * @param request
      * @return Schema
      */
-    private Schema getSchema(String datasetName, String tableName) throws java.io.IOException
+    private Schema getSchema(String datasetName, String tableName, GetTableRequest request) throws java.io.IOException
     {
         BigQuery bigQuery = BigQueryUtils.getBigQueryClient(configOptions);
-        datasetName = fixCaseForDatasetName(projectName, datasetName, bigQuery);
-        tableName = fixCaseForTableName(projectName, datasetName, tableName, bigQuery);
+        if (request.isQueryPassthrough()) {
+            datasetName = request.getQueryPassthroughArguments().get(BigQueryQueryPassthrough.DATABASE);
+            tableName = request.getQueryPassthroughArguments().get(BigQueryQueryPassthrough.COLLECTION);
+        }
+        else {
+            datasetName = fixCaseForDatasetName(projectName, datasetName, bigQuery);
+            tableName = fixCaseForTableName(projectName, datasetName, tableName, bigQuery);
+        }
 
         TableId tableId = TableId.of(projectName, datasetName, tableName);
         Table response = bigQuery.getTable(tableId);
@@ -244,5 +255,11 @@ public class BigQueryMetadataHandler
         schemaBuilder.addMetadata("timeStampCols", timeStampColsList.toString());
         logger.debug("BigQuery table schema {}", schemaBuilder.toString());
         return schemaBuilder.build();
+    }
+
+    @Override
+    public GetTableResponse doGetQueryPassthroughSchema(BlockAllocator allocator, GetTableRequest request) throws Exception
+    {
+        return doGetTable(allocator, request);
     }
 }

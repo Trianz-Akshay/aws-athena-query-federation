@@ -28,6 +28,7 @@ import com.amazonaws.athena.connector.lambda.data.FieldResolver;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.handlers.RecordHandler;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
+import com.amazonaws.athena.connectors.google.bigquery.ptf.BigQueryQueryPassthrough;
 import com.amazonaws.services.athena.AmazonAthena;
 import com.amazonaws.services.athena.AmazonAthenaClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
@@ -65,6 +66,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
@@ -111,10 +113,19 @@ public class BigQueryRecordHandler
         invoker.setBlockSpiller(spiller);
         final String projectName = configOptions.get(BigQueryConstants.GCP_PROJECT_ID);
         BigQuery bigQueryClient = BigQueryUtils.getBigQueryClient(configOptions);
-        final String datasetName = fixCaseForDatasetName(projectName, recordsRequest.getTableName().getSchemaName(), bigQueryClient);
-        final String tableName = fixCaseForTableName(projectName, datasetName, recordsRequest.getTableName().getTableName(),
-                bigQueryClient);
-
+        String datasetName;
+        String tableName;
+        if (recordsRequest.getConstraints().isQueryPassThrough()) {
+            Map<String, String> qptArgument = recordsRequest.getConstraints().getQueryPassthroughArguments();
+            datasetName = fixCaseForDatasetName(projectName, qptArgument.get(BigQueryQueryPassthrough.DATABASE), bigQueryClient);
+            tableName = fixCaseForTableName(projectName, datasetName, qptArgument.get(BigQueryQueryPassthrough.COLLECTION),
+                    bigQueryClient);
+        }
+        else {
+            datasetName = fixCaseForDatasetName(projectName, recordsRequest.getTableName().getSchemaName(), bigQueryClient);
+            tableName = fixCaseForTableName(projectName, datasetName, recordsRequest.getTableName().getTableName(),
+                    bigQueryClient);
+        }
         TableId tableId = TableId.of(projectName, datasetName, tableName);
         TableDefinition.Type type = bigQueryClient.getTable(tableId).getDefinition().getType();
         if (type.equals(TableDefinition.Type.TABLE)) {
@@ -194,7 +205,14 @@ public class BigQueryRecordHandler
             ReadSession.TableReadOptions.Builder optionsBuilder =
                     ReadSession.TableReadOptions.newBuilder()
                             .addAllSelectedFields(fields);
-            ReadSession.TableReadOptions options = BigQueryStorageApiUtils.setConstraints(optionsBuilder, recordsRequest.getSchema(), recordsRequest.getConstraints()).build();
+            ReadSession.TableReadOptions options;
+            if (recordsRequest.getConstraints().isQueryPassThrough()) {
+                Map<String, String> qptArgument = recordsRequest.getConstraints().getQueryPassthroughArguments();
+                options =  optionsBuilder.setRowRestriction(qptArgument.get(BigQueryQueryPassthrough.FILTER)).build();
+            }
+            else {
+                options = BigQueryStorageApiUtils.setConstraints(optionsBuilder, recordsRequest.getSchema(), recordsRequest.getConstraints()).build();
+            }
 
             // Start specifying the read session we want created.
             ReadSession.Builder sessionBuilder =

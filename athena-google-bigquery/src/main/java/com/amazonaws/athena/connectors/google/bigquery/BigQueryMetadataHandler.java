@@ -220,7 +220,7 @@ public class BigQueryMetadataHandler
         BigQuery bigQuery = BigQueryUtils.getBigQueryClient(configOptions);
         if (request.isQueryPassthrough()) {
             datasetName = request.getQueryPassthroughArguments().get(BigQueryQueryPassthrough.DATABASE);
-            tableName = request.getQueryPassthroughArguments().get(BigQueryQueryPassthrough.COLLECTION);
+            tableName = request.getQueryPassthroughArguments().get(BigQueryQueryPassthrough.TABLE);
         }
         else {
             datasetName = fixCaseForDatasetName(projectName, datasetName, bigQuery);

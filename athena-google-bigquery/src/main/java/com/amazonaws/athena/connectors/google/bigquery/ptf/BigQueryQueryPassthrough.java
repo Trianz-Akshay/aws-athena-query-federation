@@ -34,10 +34,12 @@ public class BigQueryQueryPassthrough implements QueryPassthroughSignature
 
     // List of arguments for the query, statically initialized as it always contains the same value.
     public static final String DATABASE = "DATABASE";
-    public static final String COLLECTION = "COLLECTION";
+    public static final String TABLE = "TABLE";
     public static final String FILTER = "FILTER";
 
-    public static final List<String> ARGUMENTS = Arrays.asList(DATABASE, COLLECTION, FILTER);
+    public static final String QUERY = "QUERY";
+
+    public static final List<String> ARGUMENTS = Arrays.asList(DATABASE, TABLE, FILTER, QUERY);
 
     @Override
     public String getFunctionSchema()

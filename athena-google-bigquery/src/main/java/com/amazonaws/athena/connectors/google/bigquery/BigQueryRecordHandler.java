@@ -118,7 +118,7 @@ public class BigQueryRecordHandler
         if (recordsRequest.getConstraints().isQueryPassThrough()) {
             Map<String, String> qptArgument = recordsRequest.getConstraints().getQueryPassthroughArguments();
             datasetName = fixCaseForDatasetName(projectName, qptArgument.get(BigQueryQueryPassthrough.DATABASE), bigQueryClient);
-            tableName = fixCaseForTableName(projectName, datasetName, qptArgument.get(BigQueryQueryPassthrough.COLLECTION),
+            tableName = fixCaseForTableName(projectName, datasetName, qptArgument.get(BigQueryQueryPassthrough.TABLE),
                     bigQueryClient);
         }
         else {
@@ -139,9 +139,17 @@ public class BigQueryRecordHandler
     private void getData(BlockSpiller spiller, ReadRecordsRequest recordsRequest, QueryStatusChecker queryStatusChecker, List<QueryParameterValue> parameterValues, BigQuery bigQueryClient, String datasetName, String tableName) throws TimeoutException
     {
         logger.debug("Got Request with constraints: {}", recordsRequest.getConstraints());
-        String sqlToExecute = BigQuerySqlUtils.buildSql(new TableName(datasetName, tableName),
-                recordsRequest.getSchema(), recordsRequest.getConstraints(), parameterValues);
+        String sqlToExecute;
+        if (recordsRequest.getConstraints().isQueryPassThrough()) {
+            Map<String, String> qptArgument = recordsRequest.getConstraints().getQueryPassthroughArguments();
+            sqlToExecute =  qptArgument.get(BigQueryQueryPassthrough.QUERY);
+        }
+        else {
+            sqlToExecute = BigQuerySqlUtils.buildSql(new TableName(datasetName, tableName),
+                    recordsRequest.getSchema(), recordsRequest.getConstraints(), parameterValues);
+        }
         logger.debug("Executing SQL Query: {} for Split: {}", sqlToExecute, recordsRequest.getSplit());
+
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(sqlToExecute).setUseLegacySql(false).setPositionalParameters(parameterValues).build();
         Job queryJob;
         try {

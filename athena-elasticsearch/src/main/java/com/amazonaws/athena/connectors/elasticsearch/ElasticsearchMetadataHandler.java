@@ -328,25 +328,16 @@ public class ElasticsearchMetadataHandler
     public GetTableResponse doGetQueryPassthroughSchema(BlockAllocator allocator, GetTableRequest request) throws Exception
     {
         logger.debug("doGetQueryPassthroughSchema: enter - " + request);
-        Schema schema = null;
+        GetTableRequest qptRequest;
         if (!request.isQueryPassthrough()) {
             throw new IllegalArgumentException("No Query passed through [{}]" + request);
         }
-        queryPassthrough.verify(request.getQueryPassthroughArguments());
-        String index = request.getQueryPassthroughArguments().get(ElasticsearchQueryPassthrough.INDEX);
-        String endpoint = getDomainEndpoint(request.getQueryPassthroughArguments().get(ElasticsearchQueryPassthrough.SCHEMA));
-        AwsRestHighLevelClient client = clientFactory.getOrCreateClient(endpoint);
-        try {
-            Map<String, Object> mappings = client.getMapping(index);
-            schema = ElasticsearchSchemaUtils.parseMapping(mappings);
+        else {
+            qptRequest = new GetTableRequest(request.getIdentity(), request.getQueryId(), request.getCatalogName(),
+                    new TableName(request.getQueryPassthroughArguments().get(ElasticsearchQueryPassthrough.SCHEMA), request.getQueryPassthroughArguments().get(ElasticsearchQueryPassthrough.INDEX)),
+                    request.getQueryPassthroughArguments());
         }
-        catch (IOException error) {
-            throw new RuntimeException("Error retrieving mapping information for index (" +
-                    index + "): " + error.getMessage(), error);
-        }
-
-        return new GetTableResponse(request.getCatalogName(), request.getTableName(),
-                (schema == null) ? SchemaBuilder.newBuilder().build() : schema, Collections.emptySet());
+        return doGetTable(allocator, qptRequest);
     }
 
     /**

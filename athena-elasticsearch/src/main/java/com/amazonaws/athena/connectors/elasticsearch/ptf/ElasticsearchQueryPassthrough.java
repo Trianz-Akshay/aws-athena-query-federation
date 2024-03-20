@@ -19,7 +19,6 @@
  */
 package com.amazonaws.athena.connectors.elasticsearch.ptf;
 
-
 import com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

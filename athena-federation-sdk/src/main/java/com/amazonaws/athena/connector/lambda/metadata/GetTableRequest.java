@@ -48,12 +48,35 @@ public class GetTableRequest
      * @param tableName                 The name of the table metadata is being requested for.
      * @param queryPassthroughArguments
      */
-    @JsonCreator
+    @Deprecated
     public GetTableRequest(@JsonProperty("identity") FederatedIdentity identity,
                            @JsonProperty("queryId") String queryId,
                            @JsonProperty("catalogName") String catalogName,
                            @JsonProperty("tableName") TableName tableName,
                            @JsonProperty("queryPassthroughArguments") Map<String, String> queryPassthroughArguments)
+    {
+        super(identity, MetadataRequestType.GET_TABLE, queryId, catalogName);
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(queryPassthroughArguments, "queryPassthroughArguments is null");
+
+        this.tableName = tableName;
+        this.queryPassthroughArguments = queryPassthroughArguments;
+    }
+
+    /**
+     * Constructs a new GetTableRequest object.
+     * @param identity
+     * @param queryId
+     * @param catalogName
+     * @param tableName
+     * @param queryPassthroughArguments
+     */
+    @JsonCreator
+    public GetTableRequest(@JsonProperty("identity") FederatedIdentity identity,
+            @JsonProperty("queryId") String queryId,
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("tableName") TableName tableName,
+            @JsonProperty("queryPassthroughArguments") Map<String, String> queryPassthroughArguments)
     {
         super(identity, MetadataRequestType.GET_TABLE, queryId, catalogName);
         requireNonNull(tableName, "tableName is null");

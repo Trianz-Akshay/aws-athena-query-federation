@@ -135,7 +135,7 @@ public class TPCDSMetadataHandlerTest
         GetTableRequest req = new GetTableRequest(identity,
                 "queryId",
                 "default",
-                new TableName(expectedSchema, "customer"));
+                new TableName(expectedSchema, "customer"), Collections.emptyMap());
 
         GetTableResponse res = handler.doGetTable(allocator, req);
         logger.info("doGetTable - {} {}", res.getTableName(), res.getSchema());

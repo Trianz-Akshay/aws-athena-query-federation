@@ -99,7 +99,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.nullable;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -252,7 +251,7 @@ public class GcsMetadataHandlerTest
         Map<String, String> metadataSchema = new HashMap<>();
         metadataSchema.put("dataFormat", PARQUET);
         Schema schema = new Schema(asList(field), metadataSchema);
-        GetTableRequest getTableRequest = new GetTableRequest(federatedIdentity, QUERY_ID, "gcs", new TableName(SCHEMA_NAME, "testtable"));
+        GetTableRequest getTableRequest = new GetTableRequest(federatedIdentity, QUERY_ID, "gcs", new TableName(SCHEMA_NAME, "testtable"), Collections.emptyMap());
         Table table = new Table();
         table.setName(TABLE_1);
         table.setDatabaseName(DATABASE_NAME);

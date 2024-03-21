@@ -1,15 +1,15 @@
 /*-
  * #%L
- * athena-jdbc
+ * athena-google-bigquery
  * %%
- * Copyright (C) 2019 Amazon Web Services
+ * Copyright (C) 2019 - 2024 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +17,7 @@
  * limitations under the License.
  * #L%
  */
-package com.amazonaws.athena.connectors.jdbc.qpt;
+package com.amazonaws.athena.connectors.google.bigquery.qpt;
 
 import com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature;
 import org.slf4j.Logger;
@@ -26,12 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * A Singleton class that implements QPT signature interface to define
- * the JDBC Query Passthrough Function's signature that will be used
- * to inform the engine how to define QPT Function for a JDBC connector
- */
-public class JdbcQueryPassthrough implements QueryPassthroughSignature
+public class BigQueryQueryPassthrough implements QueryPassthroughSignature
 {
     // Constant value representing the name of the query.
     public static final String NAME = "query";
@@ -44,8 +39,8 @@ public class JdbcQueryPassthrough implements QueryPassthroughSignature
 
     public static final List<String> ARGUMENTS = Arrays.asList(QUERY);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JdbcQueryPassthrough.class);
-    
+    private static final Logger LOGGER = LoggerFactory.getLogger(BigQueryQueryPassthrough.class);
+
     @Override
     public String getFunctionSchema()
     {

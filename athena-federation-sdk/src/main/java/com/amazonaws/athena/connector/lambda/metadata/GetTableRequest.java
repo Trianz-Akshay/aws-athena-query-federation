@@ -42,20 +42,25 @@ public class GetTableRequest
     /**
      * Constructs a new GetTableRequest object.
      *
-     * @param identity The identity of the caller.
-     * @param queryId The ID of the query requesting metadata.
-     * @param catalogName The catalog name that the table belongs to.
-     * @param tableName The name of the table metadata is being requested for.
+     * @param identity                  The identity of the caller.
+     * @param queryId                   The ID of the query requesting metadata.
+     * @param catalogName               The catalog name that the table belongs to.
+     * @param tableName                 The name of the table metadata is being requested for.
+     * @param queryPassthroughArguments
      */
     @Deprecated
     public GetTableRequest(@JsonProperty("identity") FederatedIdentity identity,
-            @JsonProperty("queryId") String queryId,
-            @JsonProperty("catalogName") String catalogName,
-            @JsonProperty("tableName") TableName tableName)
+                           @JsonProperty("queryId") String queryId,
+                           @JsonProperty("catalogName") String catalogName,
+                           @JsonProperty("tableName") TableName tableName,
+                           @JsonProperty("queryPassthroughArguments") Map<String, String> queryPassthroughArguments)
     {
         super(identity, MetadataRequestType.GET_TABLE, queryId, catalogName);
         requireNonNull(tableName, "tableName is null");
+        requireNonNull(queryPassthroughArguments, "queryPassthroughArguments is null");
+
         this.tableName = tableName;
+        this.queryPassthroughArguments = queryPassthroughArguments;
     }
 
     /**

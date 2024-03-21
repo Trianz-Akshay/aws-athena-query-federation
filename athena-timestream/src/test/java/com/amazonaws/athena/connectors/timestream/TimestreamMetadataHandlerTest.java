@@ -72,7 +72,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -267,7 +266,7 @@ public class TimestreamMetadataHandlerTest
         GetTableRequest req = new GetTableRequest(identity,
                 "query-id",
                 "default",
-                new TableName(defaultSchema, "table1"));
+                new TableName(defaultSchema, "table1"), Collections.emptyMap());
 
         GetTableResponse res = handler.doGetTable(allocator, req);
         logger.info("doGetTable - {}", res);
@@ -317,7 +316,7 @@ public class TimestreamMetadataHandlerTest
         GetTableRequest req = new GetTableRequest(identity,
                 "query-id",
                 "default",
-                new TableName(defaultSchema, "table1"));
+                new TableName(defaultSchema, "table1"), Collections.emptyMap());
 
         GetTableResponse res = handler.doGetTable(allocator, req);
         logger.info("doGetTable - {}", res);
@@ -365,7 +364,7 @@ public class TimestreamMetadataHandlerTest
         GetTableRequest req = new GetTableRequest(identity,
                 "query-id",
                 "default",
-                new TableName(defaultSchema, "table1"));
+                new TableName(defaultSchema, "table1"), Collections.emptyMap());
 
         GetTableResponse res = handler.doGetTable(allocator, req);
         logger.info("doGetTable - {}", res);

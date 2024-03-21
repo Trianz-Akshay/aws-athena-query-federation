@@ -136,7 +136,7 @@ public class MySqlMetadataHandler
                             .toArray(String[]::new))
         ));
 
-        capabilities.put(jdbcQueryPassthrough.getFunctionSignature(), jdbcQueryPassthrough.getQueryPassthroughCapabilities());
+        jdbcQueryPassthrough.addQueryPassthroughCapabilityIfEnabled(capabilities, configOptions);
 
         return new GetDataSourceCapabilitiesResponse(request.getCatalogName(), capabilities.build());
     }

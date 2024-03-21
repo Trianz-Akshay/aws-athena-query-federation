@@ -287,7 +287,8 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.12.0</version>
+             <!--- to meet engine version 3.14.0 -->
+            <version>3.14.0</version>
         </dependency>
         <dependency>
             <groupId>net.jqwik</groupId>
@@ -458,6 +459,7 @@
                 </executions>
             </plugin>
             <plugin>
+                 <!--- Allow to Add *-source.jar;  -->
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>${mvn.source.plugin.version}</version>

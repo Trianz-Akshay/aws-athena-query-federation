@@ -59,12 +59,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.UNLIMITED_PAGE_SIZE_VALUE;
@@ -389,7 +387,7 @@ public class ElasticsearchMetadataHandlerTest
         handler = new ElasticsearchMetadataHandler(awsGlue, new LocalKeyFactory(), awsSecretsManager, amazonAthena,
                 "spill-bucket", "spill-prefix", domainMapProvider, clientFactory, 10, com.google.common.collect.ImmutableMap.of());
         GetTableRequest req = new GetTableRequest(fakeIdentity(), "queryId", "elasticsearch",
-                new TableName("movies", "mishmash"), Map.of());
+                new TableName("movies", "mishmash"), Collections.emptyMap());
         GetTableResponse res = handler.doGetTable(allocator, req);
         Schema realMapping = res.getSchema();
 

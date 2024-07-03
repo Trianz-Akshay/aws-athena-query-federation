@@ -15,6 +15,22 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>software.amazon.glue</groupId>
+            <artifactId>schema-registry-serde</artifactId>
+            <version>1.1.20</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/io.confluent/kafka-avro-serializer -->
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-avro-serializer</artifactId>
+            <version>7.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-registry-client</artifactId>
+            <version>5.3.2</version>
+        </dependency>
+        <dependency>
             <!-- Only use the simple logger for testing so that we can see the output -->
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -130,6 +146,17 @@
             <version>1.0.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-avro-serializer</artifactId>
+            <version>7.5.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.11.3</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -206,4 +233,10 @@
             </plugin>
         </plugins>
     </build>
+    <repositories>
+        <repository>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 </project>

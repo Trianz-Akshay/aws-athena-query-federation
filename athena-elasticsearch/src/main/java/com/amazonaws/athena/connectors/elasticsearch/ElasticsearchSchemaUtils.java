@@ -147,6 +147,8 @@ class ElasticsearchSchemaUtils
             case "text":
             case "keyword":
             case "binary":
+            case "geo_point":
+            case "date":
                 minorType = Types.MinorType.VARCHAR;
                 break;
             case "long":
@@ -162,6 +164,7 @@ class ElasticsearchSchemaUtils
                 minorType = Types.MinorType.TINYINT;
                 break;
             case "double":
+            case "float":
                 minorType = Types.MinorType.FLOAT8;
                 break;
             case "scaled_float":
@@ -169,11 +172,9 @@ class ElasticsearchSchemaUtils
                 minorType = Types.MinorType.BIGINT;
                 metadata.put("scaling_factor", mapping.get("scaling_factor").toString());
                 break;
-            case "float":
             case "half_float":
                 minorType = Types.MinorType.FLOAT4;
                 break;
-            case "date":
             case "date_nanos":
                 minorType = Types.MinorType.DATEMILLI;
                 break;

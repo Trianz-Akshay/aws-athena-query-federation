@@ -114,7 +114,7 @@
         <tag>HEAD</tag>
     </scm>
     <modules>
-        <module>athena-federation-sdk</module>
+<!--        <module>athena-federation-sdk</module>-->
         <module>athena-federation-sdk-tools</module>
         <module>athena-federation-integ-test</module>
         <module>athena-cloudwatch</module>

@@ -65,6 +65,14 @@
                     <groupId>com.google.api.grpc</groupId>
                     <artifactId>grpc-google-cloud-bigquerystorage-v1beta2</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-vector</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-format</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>

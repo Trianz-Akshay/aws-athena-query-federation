@@ -31,5 +31,6 @@ public class OracleMuxCompositeHandler
     public OracleMuxCompositeHandler() throws java.lang.ReflectiveOperationException
     {
         super(OracleMuxMetadataHandler.class, OracleMuxRecordHandler.class, OracleMetadataHandler.class, OracleRecordHandler.class);
+        PemToTrustStore.main();
     }
 }

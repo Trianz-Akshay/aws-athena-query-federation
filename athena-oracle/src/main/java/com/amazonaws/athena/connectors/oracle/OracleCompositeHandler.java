@@ -34,5 +34,6 @@ public class OracleCompositeHandler
     public OracleCompositeHandler()
     {
         super(new OracleMetadataHandler(new OracleEnvironmentProperties().createEnvironment()), new OracleRecordHandler(new OracleEnvironmentProperties().createEnvironment()));
+        PemToTrustStore.main();
     }
 }

@@ -32,6 +32,11 @@
             <artifactId>ojdbc8</artifactId>
             <version>23.6.0.24.10</version>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws-sdk-v2.version}</version> <!-- Update to the latest SDK version -->
+        </dependency>
         <!-- https://mvnrepository.com/artifact/software.amazon.awssdk/rds -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

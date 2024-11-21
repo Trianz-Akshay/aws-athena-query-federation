@@ -19,7 +19,10 @@
  */
 package com.amazonaws.athena.connectors.oracle;
 
+import com.amazonaws.athena.connector.lambda.connection.EnvironmentProperties;
 import com.amazonaws.athena.connectors.jdbc.MultiplexingJdbcCompositeHandler;
+
+import static com.amazonaws.athena.connectors.oracle.OracleUtils.installCaCertificate;
 
 /**
  * Boilerplate composite handler that allows us to use a single Lambda function for both
@@ -31,6 +34,6 @@ public class OracleMuxCompositeHandler
     public OracleMuxCompositeHandler() throws java.lang.ReflectiveOperationException
     {
         super(OracleMuxMetadataHandler.class, OracleMuxRecordHandler.class, OracleMetadataHandler.class, OracleRecordHandler.class);
-        PemToTrustStore.main();
+        installCaCertificate(new EnvironmentProperties().createEnvironment());
     }
 }

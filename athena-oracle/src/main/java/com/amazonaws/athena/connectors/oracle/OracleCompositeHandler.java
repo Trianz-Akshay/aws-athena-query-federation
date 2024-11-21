@@ -20,7 +20,10 @@
  */
 package com.amazonaws.athena.connectors.oracle;
 
+import com.amazonaws.athena.connector.lambda.connection.EnvironmentProperties;
 import com.amazonaws.athena.connector.lambda.handlers.CompositeHandler;
+
+import static com.amazonaws.athena.connectors.oracle.OracleUtils.installCaCertificate;
 
 /**
  * Boilerplate composite handler that allows us to use a single Lambda function for both
@@ -34,6 +37,6 @@ public class OracleCompositeHandler
     public OracleCompositeHandler()
     {
         super(new OracleMetadataHandler(new OracleEnvironmentProperties().createEnvironment()), new OracleRecordHandler(new OracleEnvironmentProperties().createEnvironment()));
-        PemToTrustStore.main();
+        installCaCertificate(new EnvironmentProperties().createEnvironment());
     }
 }

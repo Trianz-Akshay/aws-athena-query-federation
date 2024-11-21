@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,50 +27,55 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
 
-public class PemToTrustStore
+public class OracleUtils
 {
-    private PemToTrustStore()
-    {
-    }
-    private static final Logger logger = LoggerFactory.getLogger(PemToTrustStore.class);
-    private static final String S3_BUCKET_NAME = "athena-vertica-data-spill";
-    private static final String S3_OBJECT_KEY = "rds-global/global-bundle.pem";
-    private static final String LOCAL_PEM_PATH = "/tmp/global-bundle.pem";
+    public static final String TMP_CACERTS = "/tmp/cacerts";
+    private static final Logger logger = LoggerFactory.getLogger(OracleUtils.class);
+    private static final String LOCAL_PEM_PATH = "/tmp/oracle-server.crt";
     private static final String TRUSTSTORE_PATH = System.getProperty("java.home") + "/lib/security/cacerts";
     private static final String TRUSTSTORE_PASSWORD = "changeit";
-    private static final String CERT_ALIAS = "my-cert-alias";
+    private static final String CERT_ALIAS = "rds-global";
 
-    public static void main()
+    private OracleUtils()
+    {
+    }
+
+    public static void installCaCertificate(Map<String, String> environment)
     {
         try {
+            Path source = Paths.get(TRUSTSTORE_PATH);
+            Path target = Paths.get(TMP_CACERTS);
+
+            // Copy the file (overwrite if the file already exists)
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             // Step 1: Download the PEM file from S3
-            downloadPemFromS3();
+            downloadPemFromS3(environment.get("db_server_cert_S3Path"));
 
             // Step 2: Import the PEM file into the cacerts truststore
             importPemToTrustStore();
 
         }
         catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Oracle db server cert import failed with reason : {}", e.getMessage());
         }
     }
 
-    private static void downloadPemFromS3() throws IOException
+    private static void downloadPemFromS3(String s3Path) throws IOException
     {
-        logger.error("Downloading PEM file from S3...");
-
-        // Create an S3 client using AWS SDK v2
-        S3Client s3Client = S3Client.create();
-
-        // Create a GetObjectRequest
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(S3_BUCKET_NAME)
-                .key(S3_OBJECT_KEY)
-                .build();
+        String bucketName = s3Path.split("://")[1].split("/")[0];
+        String objectKey = s3Path.substring(s3Path.indexOf("/", 5) + 1);
 
         // Download the PEM file from S3
-        try (InputStream s3InputStream = s3Client.getObject(getObjectRequest);
+        try (InputStream s3InputStream = S3Client.create().getObject(GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(objectKey)
+                .build());
              FileOutputStream outputStream = new FileOutputStream(LOCAL_PEM_PATH)) {
             byte[] buffer = new byte[1024];
             int bytesRead;
@@ -78,36 +83,16 @@ public class PemToTrustStore
                 outputStream.write(buffer, 0, bytesRead);
             }
         }
-        logger.error("PEM file downloaded to: " + LOCAL_PEM_PATH);
+        logger.debug("PEM file downloaded to: " + LOCAL_PEM_PATH);
     }
 
     private static void importPemToTrustStore() throws IOException, InterruptedException
     {
-        logger.error("Importing PEM file into truststore...");
-//        ProcessBuilder processBuilder1 = new ProcessBuilder(
-//                "chmod",
-//                "755",
-//                "/var/lang/lib/security/cacerts"
-//        );
-//        Process process1 = processBuilder1.start();
-//        int exitCode1 = process1.waitFor();
-//        try (InputStream inputStream1 = process1.getInputStream()) {
-//            String output = new String(inputStream1.readAllBytes());
-//            System.out.println(" Output: " + output);
-//        }
-//
-//        if (exitCode1 != 0) {
-//            System.err.println("Failed " + exitCode1);
-//        }
-//        else {
-//            logger.error("successfully.");
-//        }
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "keytool",
                 "-importcert",
-               // "-cacerts",
                 "-file", LOCAL_PEM_PATH,
-                "-keystore", "/tmp/cacerts",
+                "-keystore", TMP_CACERTS,
                 "-storepass", TRUSTSTORE_PASSWORD,
                 "-noprompt",
                 "-alias", CERT_ALIAS
@@ -116,15 +101,17 @@ public class PemToTrustStore
         Process process = processBuilder.start();
         try (InputStream inputStream = process.getInputStream()) {
             String output = new String(inputStream.readAllBytes());
-            System.out.println("Keytool Output: " + output);
+            logger.debug("Keytool Output: {}", output);
         }
 
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            System.err.println("Failed to import certificate. Exit Code: " + exitCode);
+            logger.error("Failed to import certificate. Exit Code: {}", exitCode);
         }
         else {
-            logger.error("Certificate imported successfully.");
+            logger.info("Certificate imported successfully.");
         }
+        System.setProperty("javax.net.ssl.trustStore", TMP_CACERTS);
+        System.setProperty("javax.net.ssl.trustStorePassword", TRUSTSTORE_PASSWORD);
     }
 }

@@ -66,6 +66,7 @@ public class OracleJdbcConnectionFactory extends GenericJdbcConnectionFactory
                 if (SSL_CONNECTION_STRING_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString()).matches()) {
                     LOGGER.info("Establishing connection over SSL..");
                     properties.put("javax.net.ssl.trustStoreType", "JKS");
+                    properties.put("javax.net.ssl.trustStore", "/tmp/cacerts");
                     properties.put("javax.net.ssl.trustStorePassword", "changeit");
                     properties.put("oracle.net.ssl_server_dn_match", "true");
                     if (System.getenv().getOrDefault(IS_FIPS_ENABLED, "false").equalsIgnoreCase("true")) {

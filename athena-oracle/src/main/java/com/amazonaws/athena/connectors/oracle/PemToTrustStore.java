@@ -21,8 +21,6 @@ package com.amazonaws.athena.connectors.oracle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
@@ -37,8 +35,8 @@ public class PemToTrustStore
     }
     private static final Logger logger = LoggerFactory.getLogger(PemToTrustStore.class);
     private static final String S3_BUCKET_NAME = "athena-vertica-data-spill";
-    private static final String S3_OBJECT_KEY = "rds-global/oracle-server.crt";
-    private static final String LOCAL_PEM_PATH = "/tmp/oracle-server.crt";
+    private static final String S3_OBJECT_KEY = "rds-global/global-bundle.pem";
+    private static final String LOCAL_PEM_PATH = "/tmp/global-bundle.pem";
     private static final String TRUSTSTORE_PATH = System.getProperty("java.home") + "/lib/security/cacerts";
     private static final String TRUSTSTORE_PASSWORD = "changeit";
     private static final String CERT_ALIAS = "my-cert-alias";
@@ -63,10 +61,7 @@ public class PemToTrustStore
         logger.error("Downloading PEM file from S3...");
 
         // Create an S3 client using AWS SDK v2
-        S3Client s3Client = S3Client.builder()
-                .region(Region.US_EAST_1) // Change region as needed
-                .credentialsProvider(DefaultCredentialsProvider.create())
-                .build();
+        S3Client s3Client = S3Client.create();
 
         // Create a GetObjectRequest
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -112,7 +107,7 @@ public class PemToTrustStore
                 "-importcert",
                // "-cacerts",
                 "-file", LOCAL_PEM_PATH,
-                "-keystore", "/usr/lib/jvm/java-11-openjdk/lib/security/cacerts",
+                "-keystore", "/tmp/cacerts",
                 "-storepass", TRUSTSTORE_PASSWORD,
                 "-noprompt",
                 "-alias", CERT_ALIAS

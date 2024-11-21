@@ -13,8 +13,8 @@ FROM public.ecr.aws/lambda/java:11
 # ENV PATH=$JAVA_HOME/bin:$PATH
 
 #copy java default cacerts
-COPY src/main/resources/cacerts /usr/lib/jvm/java-11-openjdk/lib/security/cacerts
-RUN chmod u+w /usr/lib/jvm/java-11-openjdk/lib/security/cacerts
+COPY src/main/resources/cacerts /tmp/cacerts
+RUN chmod u+w /tmp/cacerts
 #RUN chmod u+w /usr/lib/jvm/java-11-openjdk/lib/*/*
 
 # # Add server certificates to the default trust store
@@ -25,7 +25,7 @@ RUN chmod u+w /usr/lib/jvm/java-11-openjdk/lib/security/cacerts
 
 # Add your application jar
 COPY target/athena-oracle-2022.47.1.jar ${LAMBDA_TASK_ROOT}
-ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/usr/lib/jvm/java-11-openjdk/lib/security/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/tmp/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
 
 # Unpack the jar
 RUN jar xf athena-oracle-2022.47.1.jar

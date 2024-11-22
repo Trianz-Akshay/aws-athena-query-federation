@@ -55,10 +55,10 @@ public class OracleUtils
             // Copy the file (overwrite if the file already exists)
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             // Step 1: Download the PEM file from S3
-            downloadPemFromS3(environment.get("db_server_cert_S3Path"));
+            downloadCrtFromS3(environment.get("db_server_cert_S3Path"));
 
             // Step 2: Import the PEM file into the cacerts truststore
-            importPemToTrustStore();
+            importCrtToTrustStore();
 
         }
         catch (Exception e) {
@@ -66,7 +66,7 @@ public class OracleUtils
         }
     }
 
-    private static void downloadPemFromS3(String s3Path) throws IOException
+    private static void downloadCrtFromS3(String s3Path) throws IOException
     {
         String bucketName = s3Path.split("://")[1].split("/")[0];
         String objectKey = s3Path.substring(s3Path.indexOf("/", 5) + 1);
@@ -86,7 +86,7 @@ public class OracleUtils
         logger.debug("PEM file downloaded to: " + LOCAL_PEM_PATH);
     }
 
-    private static void importPemToTrustStore() throws IOException, InterruptedException
+    private static void importCrtToTrustStore() throws IOException, InterruptedException
     {
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "keytool",

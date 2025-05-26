@@ -28,15 +28,21 @@ import com.amazonaws.athena.connector.lambda.metadata.ListSchemasResponse;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesResponse;
 import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
-
+import com.amazonaws.athena.connectors.neptune.propertygraph.PropertyGraphHandler;
+import com.amazonaws.athena.connectors.neptune.qpt.NeptuneQueryPassthrough;
+import com.amazonaws.athena.connectors.neptune.rdf.NeptuneSparqlConnection;
+import org.apache.tinkerpop.gremlin.driver.Client;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.junit.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Column;
@@ -46,20 +52,27 @@ import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
-
 import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.UNLIMITED_PAGE_SIZE_VALUE;
+import static com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
-
-import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneMetadataHandlerTest extends TestBase {
@@ -172,4 +185,160 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         logger.info("doGetTable - exit");
     }
 
+    @Test
+    public void testDoGetQueryPassthroughSchema_propertyGraph_validValueMap() throws Exception {
+        Map<String, String> passthroughArgs = new HashMap<>();
+        passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
+        passthroughArgs.put(NeptuneQueryPassthrough.DATABASE, "schema1");
+        passthroughArgs.put(NeptuneQueryPassthrough.COLLECTION, "table1");
+        passthroughArgs.put(NeptuneQueryPassthrough.QUERY, "g.V().hasLabel(\"airport\").valueMap()");
+
+        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "catalog", new TableName("schema1", "table1"), passthroughArgs);
+
+        Map<String, String> config = new HashMap<>();
+        config.put(Constants.CFG_GRAPH_TYPE, "propertygraph");
+
+        // Inject config into handler
+        Field configOptionsField = handler.getClass().getSuperclass().getSuperclass().getDeclaredField("configOptions");
+        configOptionsField.setAccessible(true);
+        configOptionsField.set(handler, config);
+
+        // Mock glue response for doGetTable
+        List<Column> columns = Arrays.asList(
+                Column.builder().name("code").type("string").build(),
+                Column.builder().name("city").type("string").build()
+        );
+        StorageDescriptor sd = StorageDescriptor.builder().columns(columns).build();
+        Table table = Table.builder().name("table1").storageDescriptor(sd).parameters(new HashMap<>()).build();
+        software.amazon.awssdk.services.glue.model.GetTableResponse glueResponse =
+                software.amazon.awssdk.services.glue.model.GetTableResponse.builder().table(table).build();
+        when(glue.getTable((software.amazon.awssdk.services.glue.model.GetTableRequest) any())).thenReturn(glueResponse);
+
+        // Mock traversal
+        GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
+        when(graphTraversalMock.hasNext()).thenReturn(true);
+        Map<String, Object> gremlinResult = new HashMap<>();
+        gremlinResult.put("code", "SEA");
+        gremlinResult.put("city", "Seattle");
+        when(graphTraversalMock.next()).thenReturn(gremlinResult);
+
+        // Mock Neptune connection + property graph handler
+        Client clientMock = mock(Client.class);
+        when(neptuneConnection.getNeptuneClientConnection()).thenReturn(clientMock);
+        when(neptuneConnection.getTraversalSource(clientMock)).thenReturn(mock(GraphTraversalSource.class));
+
+        MockedConstruction<PropertyGraphHandler> mockedDefaultPropertyGraphHandler = mockConstruction(PropertyGraphHandler.class,
+                (mock, context) -> {
+                    when(mock.getResponseFromGremlinQuery(any(), anyString())).thenReturn(graphTraversalMock);
+                });
+
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        assertNotNull(res);
+        assertEquals("table1", res.getTableName().getTableName());
+        assertFalse(res.getSchema().getFields().isEmpty());
+        mockedDefaultPropertyGraphHandler.close();
+    }
+
+    @Test
+    public void testDoGetQueryPassthroughSchema_rdf_validSparql() throws Exception {
+        Map<String, String> passthroughArgs = new HashMap<>();
+        passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
+        passthroughArgs.put(NeptuneQueryPassthrough.DATABASE, "schema1");
+        passthroughArgs.put(NeptuneQueryPassthrough.COLLECTION, "table1");
+        passthroughArgs.put(NeptuneQueryPassthrough.QUERY, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+
+        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "catalog", new TableName("schema1", "table1"), passthroughArgs);
+
+        Map<String, String> config = new HashMap<>();
+        config.put(Constants.CFG_GRAPH_TYPE, "rdf");
+
+        Field configOptionsField = handler.getClass().getSuperclass().getSuperclass().getDeclaredField("configOptions");
+        configOptionsField.setAccessible(true);
+        configOptionsField.set(handler, config);
+
+        List<Column> columns = Arrays.asList(
+                Column.builder().name("s").type("string").build(),
+                Column.builder().name("p").type("string").build(),
+                Column.builder().name("o").type("string").build()
+        );
+        StorageDescriptor sd = StorageDescriptor.builder().columns(columns).build();
+        Table table = Table.builder().name("table1").storageDescriptor(sd).parameters(new HashMap<>()).build();
+        software.amazon.awssdk.services.glue.model.GetTableResponse glueResponse =
+                software.amazon.awssdk.services.glue.model.GetTableResponse.builder().table(table).build();
+        when(glue.getTable((software.amazon.awssdk.services.glue.model.GetTableRequest) any())).thenReturn(glueResponse);
+
+        NeptuneSparqlConnection sparqlConnection = mock(NeptuneSparqlConnection.class);
+        when(sparqlConnection.hasNext()).thenReturn(true);
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("s", "subject1");
+        resultMap.put("p", "predicate1");
+        resultMap.put("o", "object1");
+        when(sparqlConnection.next(anyBoolean())).thenReturn(resultMap);
+
+        // Replace neptuneConnection with mocked sparql connection
+        Field connField = NeptuneMetadataHandler.class.getDeclaredField("neptuneConnection");
+        connField.setAccessible(true);
+        connField.set(handler, sparqlConnection);
+
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        assertNotNull(res);
+        assertEquals("table1", res.getTableName().getTableName());
+        assertFalse(res.getSchema().getFields().isEmpty());
+    }
+
+    @Test
+    public void testDoGetQueryPassthroughSchema_propertyGraph_partialColumns_shouldTriggerElseBlock() throws Exception {
+        Map<String, String> passthroughArgs = new HashMap<>();
+        passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
+        passthroughArgs.put(NeptuneQueryPassthrough.DATABASE, "schema1");
+        passthroughArgs.put(NeptuneQueryPassthrough.COLLECTION, "table1");
+        passthroughArgs.put(NeptuneQueryPassthrough.QUERY, "g.V().hasLabel(\"airport\").valueMap(\"code\")");
+
+        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "catalog", new TableName("schema1", "table1"), passthroughArgs);
+
+        // Configure handler with propertygraph config
+        Map<String, String> config = new HashMap<>();
+        config.put(Constants.CFG_GRAPH_TYPE, "propertygraph");
+        Field configOptionsField = handler.getClass().getSuperclass().getSuperclass().getDeclaredField("configOptions");
+        configOptionsField.setAccessible(true);
+        configOptionsField.set(handler, config);
+
+        // Glue schema with 2 columns
+        List<Column> glueColumns = Arrays.asList(
+                Column.builder().name("code").type("string").build(),
+                Column.builder().name("city").type("string").build()
+        );
+        StorageDescriptor sd = StorageDescriptor.builder().columns(glueColumns).build();
+        Table table = Table.builder().name("table1").storageDescriptor(sd).parameters(new HashMap<>()).build();
+        software.amazon.awssdk.services.glue.model.GetTableResponse glueResponse =
+                software.amazon.awssdk.services.glue.model.GetTableResponse.builder().table(table).build();
+        when(glue.getTable((software.amazon.awssdk.services.glue.model.GetTableRequest) any())).thenReturn(glueResponse);
+
+        // Simulate Gremlin response with fewer fields than Glue schema
+        GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
+        when(graphTraversalMock.hasNext()).thenReturn(true);
+        Map<String, Object> gremlinResult = new HashMap<>();
+        gremlinResult.put("code", "SEA"); // only one field, will trigger the 'else' block
+        when(graphTraversalMock.next()).thenReturn(gremlinResult);
+
+        Client clientMock = mock(Client.class);
+        when(neptuneConnection.getNeptuneClientConnection()).thenReturn(clientMock);
+        when(neptuneConnection.getTraversalSource(clientMock)).thenReturn(mock(GraphTraversalSource.class));
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class,
+                (mock, context) -> {
+                    when(mock.getResponseFromGremlinQuery(any(), anyString())).thenReturn(graphTraversalMock);
+                })) {
+
+            GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+            assertEquals(1, res.getSchema().getFields().size()); // Only one field "code" should be in schema
+            assertEquals("code", res.getSchema().getFields().get(0).getName());
+        }
+    }
 }

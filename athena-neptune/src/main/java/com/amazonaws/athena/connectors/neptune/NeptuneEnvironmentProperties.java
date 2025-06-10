@@ -33,7 +33,6 @@ import static com.amazonaws.athena.connectors.neptune.Constants.CFG_ENDPOINT;
 import static com.amazonaws.athena.connectors.neptune.Constants.CFG_GRAPH_TYPE;
 import static com.amazonaws.athena.connectors.neptune.Constants.CFG_PORT;
 
-
 public class NeptuneEnvironmentProperties extends EnvironmentProperties
 {
     @Override

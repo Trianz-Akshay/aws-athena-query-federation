@@ -23,51 +23,39 @@ import com.amazonaws.athena.connector.credentials.CredentialsProvider;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
-import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
-import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
 import software.amazon.awssdk.utils.Validate;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
-
-import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.AUTH_CODE;
 
 public class SnowflakeOAuthJdbcConnectionFactory extends GenericJdbcConnectionFactory
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeOAuthJdbcConnectionFactory.class);
-    public static final String ACCESS_TOKEN = "access_token";
-    public static final String FETCHED_AT = "fetched_at";
-    public static final String REFRESH_TOKEN = "refresh_token";
-    public static final String EXPIRES_IN = "expires_in";
+    
     private final DatabaseConnectionInfo databaseConnectionInfo;
     private final DatabaseConnectionConfig databaseConnectionConfig;
     private final Properties jdbcProperties;
     private final String oauthSecretName;
     private final Map<String, String> configOptions;
-    private SecretsManagerClient secretsClient;
+    private final SecretsManagerClient secretsClient;
+    private final SnowflakeOAuthTokenManager tokenManager;
+    
+    // Cache of token managers per secret name to avoid creating multiple instances
+    private static final Map<String, SnowflakeOAuthTokenManager> TOKEN_MANAGERS = new ConcurrentHashMap<>();
 
     public SnowflakeOAuthJdbcConnectionFactory(DatabaseConnectionConfig databaseConnectionConfig,
                                                Map<String, String> properties,
-                                               DatabaseConnectionInfo databaseConnectionInfo, Map<String, String> configOptions)
+                                               DatabaseConnectionInfo databaseConnectionInfo, 
+                                               Map<String, String> configOptions)
     {
         super(databaseConnectionConfig, properties, databaseConnectionInfo);
         this.databaseConnectionInfo = Validate.notNull(databaseConnectionInfo, "databaseConnectionInfo must not be null");
@@ -79,12 +67,15 @@ public class SnowflakeOAuthJdbcConnectionFactory extends GenericJdbcConnectionFa
         }
         this.secretsClient = SecretsManagerClient.create();
         this.oauthSecretName = Validate.notNull(databaseConnectionConfig.getSecret(), "Missing required property: secret name");
+        this.tokenManager = TOKEN_MANAGERS.computeIfAbsent(oauthSecretName, 
+            secretName -> new SnowflakeOAuthTokenManager(secretsClient, secretName));
     }
 
     @VisibleForTesting
     public SnowflakeOAuthJdbcConnectionFactory(DatabaseConnectionConfig databaseConnectionConfig,
                                                Map<String, String> properties,
-                                               DatabaseConnectionInfo databaseConnectionInfo, Map<String, String> configOptions,
+                                               DatabaseConnectionInfo databaseConnectionInfo, 
+                                               Map<String, String> configOptions,
                                                SecretsManagerClient secretsClient)
     {
         super(databaseConnectionConfig, properties, databaseConnectionInfo);
@@ -97,162 +88,95 @@ public class SnowflakeOAuthJdbcConnectionFactory extends GenericJdbcConnectionFa
         }
         this.secretsClient = secretsClient;
         this.oauthSecretName = Validate.notNull(databaseConnectionConfig.getSecret(), "Missing required property: secret name");
+        this.tokenManager = TOKEN_MANAGERS.computeIfAbsent(oauthSecretName, 
+            secretName -> new SnowflakeOAuthTokenManager(secretsClient, secretName));
     }
 
     @Override
     public Connection getConnection(final CredentialsProvider credentialsProvider)
     {
         try {
-            final String derivedJdbcString;
-            GetSecretValueRequest getSecretValueRequest = GetSecretValueRequest.builder()
-                    .secretId(this.oauthSecretName)
-                    .build();
-
-            GetSecretValueResponse secretValue = this.secretsClient.getSecretValue(getSecretValueRequest);
-            Map<String, String> oauthConfig = new ObjectMapper().readValue(secretValue.secretString(), Map.class);
-            if (oauthConfig.containsKey(AUTH_CODE) && !oauthConfig.get(AUTH_CODE).isEmpty()) {
+            // Check if OAuth is configured by looking for auth_code in the secret
+            if (isOAuthConfigured()) {
                 if (credentialsProvider != null) {
-                    Matcher secretMatcher = SECRET_NAME_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString());
-                    derivedJdbcString = secretMatcher.replaceAll(Matcher.quoteReplacement(""));
-
-                    jdbcProperties.put("user", credentialsProvider.getCredential().getUser());
-                    // Get access token from OAuth provider using secret manager
-                    String accessToken = fetchAccessTokenFromSecret(oauthConfig);
-                    // Use the token in the connection properties
-                    jdbcProperties.put("password", accessToken);
-                    jdbcProperties.put("authenticator", "oauth");
-
-                    Class.forName(databaseConnectionInfo.getDriverClassName()).newInstance();
-
-                    return DriverManager.getConnection(derivedJdbcString, jdbcProperties);
+                    LOGGER.info("Creating OAuth-enabled Snowflake connection with automatic token refresh");
+                    
+                    // Create connection supplier for reconnection
+                    Supplier<Connection> connectionSupplier = () -> {
+                        try {
+                            return createRawConnection(credentialsProvider);
+                        } 
+                        catch (Exception e) {
+                            throw new RuntimeException("Failed to create connection", e);
+                        }
+                    };
+                    
+                    // Create initial connection
+                    Connection rawConnection = createRawConnection(credentialsProvider);
+                    
+                    // Wrap with OAuth-aware connection that handles token expiration
+                    return new SnowflakeOAuthConnection(rawConnection, connectionSupplier, tokenManager);
                 }
-            }
+            } 
             else {
-                    return super.getConnection(credentialsProvider);
+                // Fall back to standard connection for non-OAuth configurations
+                LOGGER.info("OAuth not configured, falling back to standard connection");
+                return super.getConnection(credentialsProvider);
             }
-        }
+        } 
         catch (Exception ex) {
             throw new RuntimeException("Error creating Snowflake connection: " + ex.getMessage(), ex);
         }
         return null;
     }
-
-    private String loadTokenFromSecretsManager(Map<String, String> oauthConfig)
+    
+    /**
+     * Checks if OAuth is configured by verifying the presence of auth_code in the secret
+     */
+    private boolean isOAuthConfigured()
     {
-        // Check if token related fields exist
-        if (oauthConfig.containsKey(ACCESS_TOKEN)) {
-            return oauthConfig.get(ACCESS_TOKEN);
+        try {
+            // This will be cached by the token manager, so it's efficient to call
+            String accessToken = tokenManager.getValidAccessToken();
+            return accessToken != null;
+        } 
+        catch (Exception e) {
+            LOGGER.debug("OAuth not configured or failed to get token: {}", e.getMessage());
+            return false;
         }
-        return null;
     }
-
-    private void saveTokenToSecretsManager(JSONObject tokenJson, Map<String, String> oauthConfig)
+    
+    /**
+     * Creates a raw JDBC connection with OAuth authentication
+     */
+    private Connection createRawConnection(CredentialsProvider credentialsProvider) throws Exception
     {
-        // Update token related fields
-        tokenJson.put(FETCHED_AT, System.currentTimeMillis() / 1000);
-        oauthConfig.put(ACCESS_TOKEN, tokenJson.getString(ACCESS_TOKEN));
-        oauthConfig.put(REFRESH_TOKEN, tokenJson.getString(REFRESH_TOKEN));
-        oauthConfig.put(EXPIRES_IN, String.valueOf(tokenJson.getInt(EXPIRES_IN)));
-        oauthConfig.put(FETCHED_AT, String.valueOf(tokenJson.getLong(FETCHED_AT)));
+        final String derivedJdbcString;
+        Matcher secretMatcher = SECRET_NAME_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString());
+        derivedJdbcString = secretMatcher.replaceAll(Matcher.quoteReplacement(""));
 
-        // Save updated secret
-        secretsClient.putSecretValue(builder -> builder
-                .secretId(this.oauthSecretName)
-                .secretString(String.valueOf(new JSONObject(oauthConfig)))
-                .build());
-    }
+        // Create a copy of JDBC properties to avoid modifying the shared instance
+        Properties connectionProperties = new Properties();
+        connectionProperties.putAll(jdbcProperties);
+        
+        connectionProperties.put("user", credentialsProvider.getCredential().getUser());
+        
+        // Get valid access token (will refresh if needed)
+        String accessToken = tokenManager.getValidAccessToken();
+        connectionProperties.put("password", accessToken);
+        connectionProperties.put("authenticator", "oauth");
+        
+        // Add connection timeout and other resilience properties
+        connectionProperties.put("loginTimeout", "30");
+        connectionProperties.put("networkTimeout", "30000");
+        connectionProperties.put("queryTimeout", "0"); // No query timeout, let Athena handle it
+        connectionProperties.put("retryCount", "3");
+        connectionProperties.put("retryInterval", "1000");
 
-    private String fetchAccessTokenFromSecret(Map<String, String> oauthConfig) throws Exception
-    {
-        String accessToken;
-        String clientId = Validate.notNull(oauthConfig.get(SnowflakeConstants.CLIENT_ID), "Missing required property: client_id");
-        String tokenEndpoint = Validate.notNull(oauthConfig.get(SnowflakeConstants.TOKEN_URL), "Missing required property: token_url");
-        String redirectUri = Validate.notNull(oauthConfig.get(SnowflakeConstants.REDIRECT_URI), "Missing required property: redirect_uri");
-        String clientSecret = Validate.notNull(oauthConfig.get(SnowflakeConstants.CLIENT_SECRET), "Missing required property: client_secret");
-        String authCode = Validate.notNull(oauthConfig.get(SnowflakeConstants.AUTH_CODE), "Missing required property: auth_code");
+        Class.forName(databaseConnectionInfo.getDriverClassName()).newInstance();
 
-        accessToken = loadTokenFromSecretsManager(oauthConfig);
-
-        if (accessToken == null) {
-            LOGGER.debug("First time auth. Using authorization_code...");
-            JSONObject tokenJson = getTokenFromAuthCode(authCode, redirectUri, tokenEndpoint, clientId, clientSecret);
-            saveTokenToSecretsManager(tokenJson, oauthConfig);
-            accessToken = tokenJson.getString(ACCESS_TOKEN);
-        }
-        else {
-            long expiresIn = Long.parseLong(oauthConfig.get(EXPIRES_IN));
-            long fetchedAt = Long.parseLong(oauthConfig.getOrDefault(FETCHED_AT, String.valueOf(0L)));
-            long now = System.currentTimeMillis() / 1000;
-
-            if ((now - fetchedAt) < expiresIn - 60) {
-                LOGGER.debug("Access token still valid.");
-            }
-            else {
-                LOGGER.debug("Access token expired. Using refresh_token...");
-                JSONObject refreshed = refreshAccessToken(oauthConfig.get(REFRESH_TOKEN), tokenEndpoint, clientId, clientSecret);
-                refreshed.put(REFRESH_TOKEN, oauthConfig.get(REFRESH_TOKEN));
-                saveTokenToSecretsManager(refreshed, oauthConfig);
-                accessToken = refreshed.getString(ACCESS_TOKEN);
-            }
-        }
-        return accessToken;
-    }
-
-    private JSONObject getTokenFromAuthCode(String authCode, String redirectUri, String tokenEndpoint, String clientId, String clientSecret) throws Exception
-    {
-        String body = "grant_type=authorization_code"
-                + "&code=" + authCode
-                + "&redirect_uri=" + redirectUri;
-
-        return requestToken(body, tokenEndpoint, clientId, clientSecret);
-    }
-
-    private JSONObject refreshAccessToken(String refreshToken, String tokenEndpoint, String clientId, String clientSecret) throws Exception
-    {
-        String body = "grant_type=refresh_token"
-                + "&refresh_token=" + URLEncoder.encode(refreshToken, StandardCharsets.UTF_8);
-
-       return requestToken(body, tokenEndpoint, clientId, clientSecret);
-    }
-
-    private JSONObject requestToken(String requestBody, String tokenEndpoint, String clientId, String clientSecret) throws Exception
-    {
-        HttpURLConnection conn = getHttpURLConnection(tokenEndpoint, clientId, clientSecret);
-
-        try (OutputStream os = conn.getOutputStream()) {
-            os.write(requestBody.getBytes(StandardCharsets.UTF_8));
-        }
-
-        int responseCode = conn.getResponseCode();
-        InputStream is = (responseCode >= 200 && responseCode < 300) ?
-                conn.getInputStream() : conn.getErrorStream();
-
-        String response = new BufferedReader(new InputStreamReader(is))
-                .lines()
-                .reduce("", (acc, line) -> acc + line);
-
-        if (responseCode != 200) {
-            throw new RuntimeException("Failed: " + responseCode + " - " + response);
-        }
-
-        JSONObject tokenJson = new JSONObject(response);
-        tokenJson.put(FETCHED_AT, System.currentTimeMillis() / 1000);
-        return tokenJson;
-    }
-
-    static HttpURLConnection getHttpURLConnection(String tokenEndpoint, String clientId, String clientSecret) throws IOException
-    {
-        URL url = new URL(tokenEndpoint);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-        String authHeader = Base64.getEncoder()
-                .encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
-
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Authorization", "Basic " + authHeader);
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-        conn.setDoOutput(true);
-        return conn;
+        LOGGER.debug("Creating Snowflake connection with OAuth token");
+        return DriverManager.getConnection(derivedJdbcString, connectionProperties);
     }
 
     public String getS3ExportBucket()

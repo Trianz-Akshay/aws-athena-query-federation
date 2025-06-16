@@ -293,6 +293,71 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         }
     }
 
+    @Test
+    public void testDoGetQueryPassthroughSchema_propertyGraph_validGremlin() throws Exception {
+        setupQueryPassthroughTest("propertygraph");
+
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("code", "SFO");
+        resultMap.put("city", "San Francisco");
+
+        GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
+        when(graphTraversalMock.hasNext()).thenReturn(true);
+        when(graphTraversalMock.next()).thenReturn(resultMap);
+
+        PropertyGraphHandler propertyGraphHandlerMock = mock(PropertyGraphHandler.class);
+        when(propertyGraphHandlerMock.getResponseFromGremlinQuery(any(), anyString()))
+            .thenReturn(graphTraversalMock);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = 
+                mockConstruction(PropertyGraphHandler.class,
+                    (mock, context) -> {
+                        when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                            .thenReturn(graphTraversalMock);
+                    })) {
+
+            GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
+                createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap().limit(1)"));
+
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+            assertEquals(2, res.getSchema().getFields().size());
+        }
+    }
+
+    @Test
+    public void testDoGetQueryPassthroughSchema_propertyGraph_partialColumns() throws Exception {
+        setupQueryPassthroughTest("propertygraph");
+
+        // Create a result map with only one column, while Glue schema has two columns
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("code", "SFO");
+        // Note: "city" column is missing from results
+
+        GraphTraversal graphTraversalMock = mock(GraphTraversal.class);
+        when(graphTraversalMock.hasNext()).thenReturn(true);
+        when(graphTraversalMock.next()).thenReturn(resultMap);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = 
+                mockConstruction(PropertyGraphHandler.class,
+                    (mock, context) -> {
+                        when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                            .thenReturn(graphTraversalMock);
+                    })) {
+
+            GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
+                createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap(\"code\").limit(1)"));
+
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+            // Verify that only the "code" column is present in the schema
+            assertEquals(1, res.getSchema().getFields().size());
+            assertEquals("code", res.getSchema().getFields().get(0).getName());
+        }
+    }
+
     private GetTableRequest createPassthroughRequest(String query) {
         Map<String, String> passthroughArgs = new HashMap<>();
         passthroughArgs.put(SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");

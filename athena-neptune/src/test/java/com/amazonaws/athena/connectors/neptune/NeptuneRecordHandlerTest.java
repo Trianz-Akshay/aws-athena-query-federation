@@ -30,6 +30,7 @@ import com.amazonaws.athena.connector.lambda.domain.spill.S3SpillLocation;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
 import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
 import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
+import com.amazonaws.athena.connectors.neptune.propertygraph.PropertyGraphHandler;
 import com.amazonaws.athena.connectors.neptune.rdf.RDFHandler;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -193,6 +194,144 @@ public class NeptuneRecordHandlerTest extends TestBase {
             handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
             handler.readWithConstraint(spiller, request, checker);
             verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+        }
+    }
+
+    @Test
+    public void readWithConstraint_WithPropertyGraph_ExecutesPropertyGraphHandlerQuery() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+
+        Schema schema = SchemaBuilder.newBuilder()
+            .addMetadata("componenttype", "vertex")
+            .addStringField("id")
+            .addStringField("name")
+            .addIntField("age")
+            .build();
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void readWithConstraint_WithPropertyGraphHandlerError_ThrowsRuntimeException() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+
+        Schema schema = SchemaBuilder.newBuilder()
+            .addMetadata("componenttype", "vertex")
+            .addStringField("id")
+            .addStringField("name")
+            .addIntField("age")
+            .build();
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(
+                PropertyGraphHandler.class,
+                (mock, ctx) -> doThrow(new RuntimeException()).when(mock).executeQuery(any(), any(), any(), any()))) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+        }
+    }
+
+    @Test
+    public void readWithConstraint_WithPropertyGraphQueryPassthrough_ExecutesPropertyGraphHandlerQuery() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+
+        Schema schema = SchemaBuilder.newBuilder()
+            .addMetadata("componenttype", "vertex")
+            .addStringField("id")
+            .addStringField("name")
+            .addIntField("age")
+            .build();
+
+        Map<String, String> passthroughArgs = new HashMap<>();
+        passthroughArgs.put("system.query", "g.V().hasLabel('person').valueMap()");
+        passthroughArgs.put("database", "default");
+        passthroughArgs.put("collection", "vertices");
+
+        ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void readWithConstraint_WithPropertyGraphClassCastException_ThrowsRuntimeException() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+
+        Schema schema = SchemaBuilder.newBuilder()
+            .addMetadata("componenttype", "vertex")
+            .addStringField("id")
+            .addStringField("name")
+            .addIntField("age")
+            .build();
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(
+                PropertyGraphHandler.class,
+                (mock, ctx) -> doThrow(new ClassCastException("Invalid type cast")).when(mock).executeQuery(any(), any(), any(), any()))) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void readWithConstraint_WithPropertyGraphIllegalArgumentException_ThrowsRuntimeException() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+
+        Schema schema = SchemaBuilder.newBuilder()
+            .addMetadata("componenttype", "vertex")
+            .addStringField("id")
+            .addStringField("name")
+            .addIntField("age")
+            .build();
+
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(
+                PropertyGraphHandler.class,
+                (mock, ctx) -> doThrow(new IllegalArgumentException("Invalid argument")).when(mock).executeQuery(any(), any(), any(), any()))) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void readWithConstraint_WithRDFClassCastException_ThrowsRuntimeException() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
+
+        Schema schema = createRDFSchema();
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<RDFHandler> mocked = mockConstruction(
+                RDFHandler.class,
+                (mock, ctx) -> doThrow(new ClassCastException("Invalid type cast")).when(mock).executeQuery(any(), any(), any(), any()))) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
+        }
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void readWithConstraint_WithRDFIllegalArgumentException_ThrowsRuntimeException() throws Exception {
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
+
+        Schema schema = createRDFSchema();
+        ReadRecordsRequest request = createReadRecordsRequest(schema);
+
+        try (MockedConstruction<RDFHandler> mocked = mockConstruction(
+                RDFHandler.class,
+                (mock, ctx) -> doThrow(new IllegalArgumentException("Invalid argument")).when(mock).executeQuery(any(), any(), any(), any()))) {
+            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+            handler.readWithConstraint(spiller, request, checker);
         }
     }
 

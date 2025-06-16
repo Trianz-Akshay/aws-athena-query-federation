@@ -19,84 +19,74 @@
  */
 package com.amazonaws.athena.connectors.neptune;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.CLUSTER_RES_ID;
+import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.GRAPH_TYPE;
+import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.HOST;
+import static com.amazonaws.athena.connector.lambda.connection.EnvironmentConstants.PORT;
+import static com.amazonaws.athena.connectors.neptune.Constants.CFG_ClUSTER_RES_ID;
+import static com.amazonaws.athena.connectors.neptune.Constants.CFG_ENDPOINT;
+import static com.amazonaws.athena.connectors.neptune.Constants.CFG_GRAPH_TYPE;
+import static com.amazonaws.athena.connectors.neptune.Constants.CFG_PORT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneEnvironmentPropertiesTest {
-    private static final String TEST_ENDPOINT = "localhost";
-    private static final String TEST_PORT = "8182";
-    private static final String TEST_REGION = "us-east-1";
-    private static final String TEST_IAM = "false";
-    private static final String TEST_GRAPH_TYPE = "PROPERTYGRAPH";
 
-    @Mock
-    private Map<String, String> mockEnv;
+    @Test
+    public void testConnectionPropertiesToEnvironment() {
+        // Create input connection properties
+        Map<String, String> connectionProperties = new HashMap<>();
+        connectionProperties.put(HOST, "test-endpoint");
+        connectionProperties.put(PORT, "8182");
+        connectionProperties.put(CFG_ClUSTER_RES_ID, "test-cluster-id");
+        connectionProperties.put(GRAPH_TYPE, "propertygraph");
 
-    @Before
-    public void setUp() {
-        mockEnv = new HashMap<>();
-        mockEnv.put(Constants.CFG_ENDPOINT, TEST_ENDPOINT);
-        mockEnv.put(Constants.CFG_PORT, TEST_PORT);
-        mockEnv.put(Constants.CFG_GRAPH_TYPE, TEST_GRAPH_TYPE);
-        mockEnv.put(Constants.CFG_IAM, TEST_IAM);
-        mockEnv.put(Constants.CFG_REGION, TEST_REGION);
+        // Create environment map with expected values
+        Map<String, String> environment = new HashMap<>();
+        environment.put(CLUSTER_RES_ID, "test-cluster-id");
+        environment.put(GRAPH_TYPE, "propertygraph");
+
+        // Create instance and call method
+        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties();
+        Map<String, String> result = properties.connectionPropertiesToEnvironment(connectionProperties);
+
+        // Verify results
+        assertNotNull("Result should not be null", result);
+        assertEquals("Endpoint should match", "test-endpoint", result.get(CFG_ENDPOINT));
+        assertEquals("Port should match", "8182", result.get(CFG_PORT));
     }
 
     @Test
-    public void createEnvironment_WithValidConfiguration_ReturnsNonNullEnvironmentValues() {
-        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties() {
-            @Override
-            public Map<String, String> createEnvironment() {
-                return mockEnv;
-            }
-        };
+    public void testConnectionPropertiesToEnvironment_WithNullValues() {
+        // Create input connection properties with null values
+        Map<String, String> connectionProperties = new HashMap<>();
+        connectionProperties.put(HOST, null);
+        connectionProperties.put(PORT, null);
+        connectionProperties.put(CLUSTER_RES_ID, null);
+        connectionProperties.put(GRAPH_TYPE, null);
 
-        Map<String, String> env = properties.createEnvironment();
-        assertNotNull(env);
-        assertNotNull(env.get(Constants.CFG_ENDPOINT));
-        assertNotNull(env.get(Constants.CFG_PORT));
-        assertNotNull(env.get(Constants.CFG_GRAPH_TYPE));
-        assertNotNull(env.get(Constants.CFG_IAM));
-        assertNotNull(env.get(Constants.CFG_REGION));
-    }
+        // Create environment map with null values
+        Map<String, String> environment = new HashMap<>();
+        environment.put(CLUSTER_RES_ID, null);
+        environment.put(GRAPH_TYPE, null);
 
-    @Test
-    public void createEnvironment_WithValidConfiguration_ReturnsMatchingEnvironmentValues() {
-        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties() {
-            @Override
-            public Map<String, String> createEnvironment() {
-                return mockEnv;
-            }
-        };
+        // Create instance and call method
+        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties();
+        Map<String, String> result = properties.connectionPropertiesToEnvironment(connectionProperties);
 
-        Map<String, String> env = properties.createEnvironment();
-        assertEquals(TEST_ENDPOINT, env.get(Constants.CFG_ENDPOINT));
-        assertEquals(TEST_PORT, env.get(Constants.CFG_PORT));
-        assertEquals(TEST_GRAPH_TYPE, env.get(Constants.CFG_GRAPH_TYPE));
-        assertEquals(TEST_IAM, env.get(Constants.CFG_IAM));
-        assertEquals(TEST_REGION, env.get(Constants.CFG_REGION));
-    }
-
-    @Test
-    public void createEnvironment_WithValidConfiguration_ReturnsExpectedEnvironmentSize() {
-        NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties() {
-            @Override
-            public Map<String, String> createEnvironment() {
-                return mockEnv;
-            }
-        };
-
-        Map<String, String> env = properties.createEnvironment();
-        assertEquals(5, env.size());
+        // Verify results
+        assertNotNull("Result should not be null", result);
+        assertEquals("Endpoint should be null", null, result.get(CFG_ENDPOINT));
+        assertEquals("Port should be null", null, result.get(CFG_PORT));
+        assertEquals("Cluster resource ID should be null", environment.get(CLUSTER_RES_ID), result.get(CFG_ClUSTER_RES_ID));
+        assertEquals("Graph type should be null", environment.get(GRAPH_TYPE), result.get(CFG_GRAPH_TYPE));
     }
 } 

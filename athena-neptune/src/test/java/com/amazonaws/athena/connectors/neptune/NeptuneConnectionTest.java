@@ -36,6 +36,7 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -62,41 +63,77 @@ public class NeptuneConnectionTest {
     }
 
     @Test
-    public void neptuneGremlinConnection_WithPropertyGraphType_CreatesValidConnection() {
+    public void createConnection_WithPropertyGraphType_ReturnsNeptuneGremlinConnection() {
+        // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
-        NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
-            protected Cluster createCluster() {
-                return mockCluster;
-            }
-        };
         
-        assertNotNull(connection);
-        assertEquals(TEST_ENDPOINT, connection.getNeptuneEndpoint());
-        assertEquals(TEST_PORT, connection.getNeptunePort());
-        assertEquals(TEST_REGION, connection.getRegion());
-        assertFalse(connection.isEnabledIAM());
+        // Execute
+        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+        
+        // Verify
+        assertNotNull("Connection should not be null", connection);
+        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
+        assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
+        assertEquals("Region should match", TEST_REGION, connection.getRegion());
+        assertFalse("IAM should be disabled", connection.isEnabledIAM());
     }
 
     @Test
-    public void neptuneSparqlConnection_WithRDFGraphType_CreatesValidConnection() {
+    public void createConnection_WithRDFType_ReturnsNeptuneSparqlConnection() {
+        // Setup
         configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
-        NeptuneConnection connection = new NeptuneSparqlConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
-            protected Cluster createCluster() {
-                return mockCluster;
-            }
-        };
         
-        assertNotNull(connection);
-        assertEquals(TEST_ENDPOINT, connection.getNeptuneEndpoint());
-        assertEquals(TEST_PORT, connection.getNeptunePort());
-        assertEquals(TEST_REGION, connection.getRegion());
-        assertFalse(connection.isEnabledIAM());
+        // Execute
+        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+        
+        // Verify
+        assertNotNull("Connection should not be null", connection);
+        assertTrue("Should be instance of NeptuneSparqlConnection", connection instanceof NeptuneSparqlConnection);
+        assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
+        assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
+        assertEquals("Region should match", TEST_REGION, connection.getRegion());
+        assertFalse("IAM should be disabled", connection.isEnabledIAM());
+    }
+
+    @Test
+    public void createConnection_WithNullGraphType_ReturnsNeptuneGremlinConnection() {
+        // Setup - don't set graph type to test default behavior
+        
+        // Execute
+        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+        
+        // Verify
+        assertNotNull("Connection should not be null", connection);
+        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
+        assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
+        assertEquals("Region should match", TEST_REGION, connection.getRegion());
+        assertFalse("IAM should be disabled", connection.isEnabledIAM());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void createConnection_WithInvalidGraphType_ThrowsIllegalArgumentException() {
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "INVALID");
+        // Setup
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "INVALID_TYPE");
+        
+        // Execute - should throw IllegalArgumentException
         NeptuneConnection.createConnection(configOptions);
+    }
+
+    @Test
+    public void createConnection_WithIAMEnabled_ReturnsConnectionWithIAMEnabled() {
+        // Setup
+        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+        configOptions.put(Constants.CFG_IAM, "true");
+        
+        // Execute
+        NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
+        
+        // Verify
+        assertNotNull("Connection should not be null", connection);
+        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertTrue("IAM should be enabled", connection.isEnabledIAM());
     }
 
     @Test

@@ -41,26 +41,27 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.tinkerpop.gremlin.structure.T;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class VertexRowWriterTest {
+@RunWith(MockitoJUnitRunner.class)
+public class VertexRowWriterTest {
 
     @Mock
     private RowWriterBuilder mockRowWriterBuilder;
@@ -68,9 +69,8 @@ class VertexRowWriterTest {
     private Map<String, String> configOptions;
     private Map<String, Object> vertexContext;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+    @Before
+    public void setUp() {
         when(mockRowWriterBuilder.withExtractor(anyString(), any())).thenReturn(mockRowWriterBuilder);
         
         // Setup config options
@@ -83,7 +83,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testBitExtractor_ValidBoolean() throws Exception {
+    public void testBitExtractor_ValidBoolean() throws Exception {
         ArrayList<Object> boolValues = new ArrayList<>();
         boolValues.add(true);
         vertexContext.put("active", boolValues);
@@ -104,7 +104,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testBitExtractor_ValidFalse() throws Exception {
+    public void testBitExtractor_ValidFalse() throws Exception {
         ArrayList<Object> boolValues = new ArrayList<>();
         boolValues.add(false);
         vertexContext.put("inactive", boolValues);
@@ -125,7 +125,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testBitExtractor_NullValue() throws Exception {
+    public void testBitExtractor_NullValue() throws Exception {
         vertexContext.put("nullField", null);
         
         Field bitField = new Field("nullField", FieldType.nullable(new ArrowType.Bool()), null);
@@ -143,7 +143,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testBitExtractor_EmptyString() throws Exception {
+    public void testBitExtractor_EmptyString() throws Exception {
         ArrayList<Object> emptyValues = new ArrayList<>();
         emptyValues.add("   ");
         vertexContext.put("emptyField", emptyValues);
@@ -163,7 +163,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testVarCharExtractor_RegularField() throws Exception {
+    public void testVarCharExtractor_RegularField() throws Exception {
         ArrayList<Object> nameValues = new ArrayList<>();
         nameValues.add("John Doe");
         vertexContext.put("name", nameValues);
@@ -184,7 +184,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testVarCharExtractor_SpecialIDField() throws Exception {
+    public void testVarCharExtractor_SpecialIDField() throws Exception {
         Field idField = new Field(SpecialKeys.ID.toString().toLowerCase(), FieldType.nullable(new ArrowType.Utf8()), null);
         
         VertexRowWriter.writeRowTemplate(mockRowWriterBuilder, idField, configOptions);
@@ -201,7 +201,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testVarCharExtractor_MultipleValues() throws Exception {
+    public void testVarCharExtractor_MultipleValues() throws Exception {
         ArrayList<Object> multiValues = new ArrayList<>();
         multiValues.add("value1");
         multiValues.add("value2");
@@ -224,7 +224,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testVarCharExtractor_EmptyArrayList() throws Exception {
+    public void testVarCharExtractor_EmptyArrayList() throws Exception {
         vertexContext.put("emptyList", new ArrayList<>());
         
         Field varcharField = new Field("emptyList", FieldType.nullable(new ArrowType.Utf8()), null);
@@ -242,7 +242,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testDateMilliExtractor_ValidDate() throws Exception {
+    public void testDateMilliExtractor_ValidDate() throws Exception {
         Date testDate = new Date();
         ArrayList<Object> dateValues = new ArrayList<>();
         dateValues.add(testDate);
@@ -264,7 +264,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testIntExtractor_ValidInteger() throws Exception {
+    public void testIntExtractor_ValidInteger() throws Exception {
         ArrayList<Object> intValues = new ArrayList<>();
         intValues.add(30);
         vertexContext.put("age", intValues);
@@ -285,7 +285,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testBigIntExtractor_ValidLong() throws Exception {
+    public void testBigIntExtractor_ValidLong() throws Exception {
         ArrayList<Object> longValues = new ArrayList<>();
         longValues.add(9223372036854775807L);
         vertexContext.put("bigNumber", longValues);
@@ -306,7 +306,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testFloat4Extractor_ValidFloat() throws Exception {
+    public void testFloat4Extractor_ValidFloat() throws Exception {
         ArrayList<Object> floatValues = new ArrayList<>();
         floatValues.add(3.14f);
         vertexContext.put("score", floatValues);
@@ -327,7 +327,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testFloat8Extractor_ValidDouble() throws Exception {
+    public void testFloat8Extractor_ValidDouble() throws Exception {
         ArrayList<Object> doubleValues = new ArrayList<>();
         doubleValues.add(2.718281828);
         vertexContext.put("precision", doubleValues);
@@ -349,7 +349,7 @@ class VertexRowWriterTest {
 
     // Test case insensitive configuration
     @Test
-    void testContextAsMap_CaseInsensitive() throws Exception {
+    public void testContextAsMap_CaseInsensitive() throws Exception {
         configOptions.put(Constants.SCHEMA_CASE_INSEN, "true");
         
         ArrayList<Object> nameValues = new ArrayList<>();
@@ -373,7 +373,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testContextAsMap_CaseSensitive() throws Exception {
+    public void testContextAsMap_CaseSensitive() throws Exception {
         configOptions.put(Constants.SCHEMA_CASE_INSEN, "false");
         
         ArrayList<Object> nameValues = new ArrayList<>();
@@ -396,7 +396,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testContextAsMap_DefaultCaseInsensitive() throws Exception {
+    public void testContextAsMap_DefaultCaseInsensitive() throws Exception {
         // When no configuration is provided, should default to case insensitive
         ArrayList<Object> nameValues = new ArrayList<>();
         nameValues.add("Test Value");
@@ -418,7 +418,7 @@ class VertexRowWriterTest {
     }
 
     @Test
-    void testContextAsMap_IDFieldTransformation() throws Exception {
+    public void testContextAsMap_IDFieldTransformation() throws Exception {
         // Test that T.id is transformed to SpecialKeys.ID
         Field idField = new Field(SpecialKeys.ID.toString().toLowerCase(), FieldType.nullable(new ArrowType.Utf8()), null);
         
@@ -436,11 +436,8 @@ class VertexRowWriterTest {
         assertEquals("vertex123", holder.value);
     }
 
-    @Test
-    void testPrivateConstructor() {
-        // Test that VertexRowWriter constructor is private and cannot be instantiated
-        assertThrows(IllegalAccessException.class, () -> {
-            VertexRowWriter.class.getDeclaredConstructor().newInstance();
-        });
+    @Test(expected = IllegalAccessException.class)
+    public void testPrivateConstructor() throws Exception {
+        VertexRowWriter.class.getDeclaredConstructor().newInstance();
     }
 } 

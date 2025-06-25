@@ -64,7 +64,7 @@ import static com.amazonaws.athena.connector.lambda.metadata.optimizations.query
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -87,10 +87,7 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     public void setUp() {
         allocator = new BlockAllocatorImpl();
         glue = mock(GlueClient.class);
-        Client mockClient = mock(Client.class);
-        GraphTraversalSource mockTraversalSource = mock(GraphTraversalSource.class);
-        neptuneConnection = new TestNeptuneConnection(mockClient, mockTraversalSource);
-        handler = new NeptuneMetadataHandler(glue, neptuneConnection, new LocalKeyFactory(), 
+        handler = new NeptuneMetadataHandler(glue, neptuneConnection, new LocalKeyFactory(),
             mock(SecretsManagerClient.class), mock(AthenaClient.class), 
             "spill-bucket", "spill-prefix", DEFAULT_PARAMS);
     }
@@ -124,16 +121,17 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test
-    public void doGetTable() throws Exception {
-        List<Column> columns = Arrays.asList(
-            Column.builder().name("col1").type("int").comment("comment").build(),
-            Column.builder().name("col2").type("bigint").comment("comment").build(),
-            Column.builder().name("col3").type("string").comment("comment").build(),
-            Column.builder().name("col4").type("timestamp").comment("comment").build(),
-            Column.builder().name("col5").type("date").comment("comment").build(),
-            Column.builder().name("col6").type("timestamptz").comment("comment").build(),
-            Column.builder().name("col7").type("timestamptz").comment("comment").build()
-        );
+    public void doGetTable() {
+        try {
+            List<Column> columns = Arrays.asList(
+                    Column.builder().name("col1").type("int").comment("comment").build(),
+                    Column.builder().name("col2").type("bigint").comment("comment").build(),
+                    Column.builder().name("col3").type("string").comment("comment").build(),
+                    Column.builder().name("col4").type("timestamp").comment("comment").build(),
+                    Column.builder().name("col5").type("date").comment("comment").build(),
+                    Column.builder().name("col6").type("timestamptz").comment("comment").build(),
+                    Column.builder().name("col7").type("timestamptz").comment("comment").build()
+            );
 
         Table table = Table.builder()
                 .name("table1")
@@ -145,10 +143,13 @@ public class NeptuneMetadataHandlerTest extends TestBase {
             .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder()
                 .table(table).build());
 
-        GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default", 
-            new TableName("schema1", "table1"), Collections.emptyMap());
-        GetTableResponse res = handler.doGetTable(allocator, req);
-        assertTrue(res.getSchema().getFields().size() > 0);
+            GetTableRequest req = new GetTableRequest(IDENTITY, "queryId", "default",
+                    new TableName("schema1", "table1"), Collections.emptyMap());
+            GetTableResponse res = handler.doGetTable(allocator, req);
+            assertFalse(res.getSchema().getFields().isEmpty());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
     }
 
     private void setupQueryPassthroughTest(String graphType) throws Exception {
@@ -184,8 +185,9 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_rdf_validSparql() throws Exception {
-        setupQueryPassthroughTest("rdf");
+    public void testDoGetQueryPassthroughSchema_rdf_validSparql() {
+        try {
+            setupQueryPassthroughTest("rdf");
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("s", "subject1");
@@ -203,9 +205,12 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, 
             createPassthroughRequest("SELECT ?s ?p ?o WHERE { ?s ?p ?o }"));
 
-        assertNotNull(res);
-        assertEquals("table1", res.getTableName().getTableName());
-        assertFalse(res.getSchema().getFields().isEmpty());
+            assertNotNull(res);
+            assertEquals("table1", res.getTableName().getTableName());
+            assertFalse(res.getSchema().getFields().isEmpty());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -294,8 +299,9 @@ public class NeptuneMetadataHandlerTest extends TestBase {
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_propertyGraph_validGremlin() throws Exception {
-        setupQueryPassthroughTest("propertygraph");
+    public void testDoGetQueryPassthroughSchema_propertyGraph_validGremlin() {
+        try {
+            setupQueryPassthroughTest("propertygraph");
 
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("code", "SFO");
@@ -305,30 +311,28 @@ public class NeptuneMetadataHandlerTest extends TestBase {
         when(graphTraversalMock.hasNext()).thenReturn(true);
         when(graphTraversalMock.next()).thenReturn(resultMap);
 
-        PropertyGraphHandler propertyGraphHandlerMock = mock(PropertyGraphHandler.class);
-        when(propertyGraphHandlerMock.getResponseFromGremlinQuery(any(), anyString()))
-            .thenReturn(graphTraversalMock);
-
-        try (MockedConstruction<PropertyGraphHandler> mocked = 
-                mockConstruction(PropertyGraphHandler.class,
-                    (mock, context) -> {
-                        when(mock.getResponseFromGremlinQuery(any(), anyString()))
-                            .thenReturn(graphTraversalMock);
-                    })) {
+            try (MockedConstruction<PropertyGraphHandler> mocked =
+                         mockConstruction(PropertyGraphHandler.class,
+                                 (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                                         .thenReturn(graphTraversalMock))) {
 
             GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
                 createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap().limit(1)"));
 
-            assertNotNull(res);
-            assertEquals("table1", res.getTableName().getTableName());
-            assertFalse(res.getSchema().getFields().isEmpty());
-            assertEquals(2, res.getSchema().getFields().size());
+                assertNotNull(res);
+                assertEquals("table1", res.getTableName().getTableName());
+                assertFalse(res.getSchema().getFields().isEmpty());
+                assertEquals(2, res.getSchema().getFields().size());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 
     @Test
-    public void testDoGetQueryPassthroughSchema_propertyGraph_partialColumns() throws Exception {
-        setupQueryPassthroughTest("propertygraph");
+    public void testDoGetQueryPassthroughSchema_propertyGraph_partialColumns() {
+        try {
+            setupQueryPassthroughTest("propertygraph");
 
         // Create a result map with only one column, while Glue schema has two columns
         Map<String, Object> resultMap = new HashMap<>();
@@ -341,20 +345,20 @@ public class NeptuneMetadataHandlerTest extends TestBase {
 
         try (MockedConstruction<PropertyGraphHandler> mocked = 
                 mockConstruction(PropertyGraphHandler.class,
-                    (mock, context) -> {
-                        when(mock.getResponseFromGremlinQuery(any(), anyString()))
-                            .thenReturn(graphTraversalMock);
-                    })) {
+                    (mock, context) -> when(mock.getResponseFromGremlinQuery(any(), anyString()))
+                        .thenReturn(graphTraversalMock))) {
 
             GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator,
                 createPassthroughRequest("g.V().hasLabel(\"airport\").valueMap(\"code\").limit(1)"));
 
-            assertNotNull(res);
-            assertEquals("table1", res.getTableName().getTableName());
-            assertFalse(res.getSchema().getFields().isEmpty());
-            // Verify that only the "code" column is present in the schema
-            assertEquals(1, res.getSchema().getFields().size());
-            assertEquals("code", res.getSchema().getFields().get(0).getName());
+                assertNotNull(res);
+                assertEquals("table1", res.getTableName().getTableName());
+                assertFalse(res.getSchema().getFields().isEmpty());
+                assertEquals(1, res.getSchema().getFields().size());
+                assertEquals("code", res.getSchema().getFields().get(0).getName());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 

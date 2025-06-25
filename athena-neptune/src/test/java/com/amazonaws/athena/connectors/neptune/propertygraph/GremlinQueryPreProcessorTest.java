@@ -26,30 +26,30 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.anyString;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class GremlinQueryPreProcessorTest {
+public class GremlinQueryPreProcessorTest {
 
     @Mock
     private GraphTraversal<Element, Element> mockTraversal;
 
-    @BeforeEach
-    void setUp() {
+    @Before
+    public void setUp() {
         MockitoAnnotations.openMocks(this);
         when(mockTraversal.has(anyString(), any(P.class))).thenReturn(mockTraversal);
         when(mockTraversal.where(any(GraphTraversal.class))).thenReturn(mockTraversal);
     }
 
     @Test
-    void testBooleanEqualTo() {
+    public void testBooleanEqualTo() {
         when(mockTraversal.has("boolField", P.eq(true))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -65,7 +65,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testIntegerGreaterThan() {
+    public void testIntegerGreaterThan() {
         when(mockTraversal.has("intField", P.gt(42))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -81,7 +81,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testLongLessThan() {
+    public void testLongLessThan() {
         when(mockTraversal.has("longField", P.lt(1000L))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -97,7 +97,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testFloatGreaterThanEqual() {
+    public void testFloatGreaterThanEqual() {
         when(mockTraversal.has("floatField", P.gte(3.14f))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -113,7 +113,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testDoubleLessThanEqual() {
+    public void testDoubleLessThanEqual() {
         when(mockTraversal.has("doubleField", P.lte(2.718))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -129,7 +129,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testStringNotEqual() {
+    public void testStringNotEqual() {
         when(mockTraversal.has("stringField", P.neq("test"))).thenReturn(mockTraversal);
         
         GremlinQueryPreProcessor.generateGremlinQueryPart(
@@ -145,7 +145,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testInVertexIdGreaterThan() {
+    public void testInVertexIdGreaterThan() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.IN.toString().toLowerCase(),
@@ -159,7 +159,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testOutVertexIdLessThan() {
+    public void testOutVertexIdLessThan() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.OUT.toString().toLowerCase(),
@@ -173,7 +173,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testElementIdEqual() {
+    public void testElementIdEqual() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.ID.toString().toLowerCase(),
@@ -187,7 +187,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testInVertexIdGreaterThanEqual() {
+    public void testInVertexIdGreaterThanEqual() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.IN.toString().toLowerCase(),
@@ -201,7 +201,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testOutVertexIdLessThanEqual() {
+    public void testOutVertexIdLessThanEqual() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.OUT.toString().toLowerCase(),
@@ -215,7 +215,7 @@ class GremlinQueryPreProcessorTest {
     }
 
     @Test
-    void testElementIdNotEqual() {
+    public void testElementIdNotEqual() {
         GremlinQueryPreProcessor.generateGremlinQueryPart(
             mockTraversal,
             SpecialKeys.ID.toString().toLowerCase(),

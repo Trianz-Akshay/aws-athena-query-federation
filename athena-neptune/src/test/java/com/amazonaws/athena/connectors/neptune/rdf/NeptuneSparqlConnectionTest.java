@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2024 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package com.amazonaws.athena.connectors.neptune.rdf;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.vocabulary.XMLSchema;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.TupleQuery;
@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -115,8 +116,9 @@ public class NeptuneSparqlConnectionTest {
     }
 
     @Test
-    public void testNextWithLiteralTypes() throws Exception {
-        when(mockQueryResult.next()).thenReturn(mockBindingSet);
+    public void testNextWithLiteralTypes()  {
+       try{
+           when(mockQueryResult.next()).thenReturn(mockBindingSet);
         Set<String> bindingNames = new HashSet<>();
         bindingNames.add("boolVar");
         bindingNames.add("dateVar");
@@ -124,13 +126,13 @@ public class NeptuneSparqlConnectionTest {
 
         // Mock boolean literal
         Literal boolLiteral = mock(Literal.class);
-        when(boolLiteral.getDatatype()).thenReturn(XMLSchema.BOOLEAN);
+        when(boolLiteral.getDatatype()).thenReturn(XSD.BOOLEAN);
         when(boolLiteral.booleanValue()).thenReturn(true);
         when(mockBindingSet.getValue("boolVar")).thenReturn(boolLiteral);
 
         // Mock date literal
         Literal dateLiteral = mock(Literal.class);
-        when(dateLiteral.getDatatype()).thenReturn(XMLSchema.DATE);
+           when(dateLiteral.getDatatype()).thenReturn(XSD.DATE);
         XMLGregorianCalendar calendar = DatatypeFactory.newInstance().newXMLGregorianCalendar(new GregorianCalendar());
         when(dateLiteral.calendarValue()).thenReturn(calendar);
         when(mockBindingSet.getValue("dateVar")).thenReturn(dateLiteral);
@@ -138,7 +140,10 @@ public class NeptuneSparqlConnectionTest {
         Map<String, Object> result = connection.next(false);
         assertTrue((Boolean) result.get("boolVar"));
         assertNotNull(result.get("dateVar"));
-    }
+    } catch (Exception e)
+       {
+        fail("Unexpected exception: " + e.getMessage());
+    }}
 
     @Test
     public void testRunQuery() {
@@ -173,7 +178,7 @@ public class NeptuneSparqlConnectionTest {
         bindingNames.add("subject");
         when(mockBindingSet.getBindingNames()).thenReturn(bindingNames);
         when(mockBindingSet.getValue("subject")).thenReturn(mockLiteral);
-        when(mockLiteral.getDatatype()).thenReturn(XMLSchema.LONG);
+        when(mockLiteral.getDatatype()).thenReturn(XSD.LONG);
         Map<String, Object> result = connection.next(false);
         assertNotNull(result);
         assertEquals(0L, result.get("subject"));

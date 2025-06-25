@@ -23,12 +23,13 @@ import org.apache.tinkerpop.gremlin.driver.Client;
 import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.apache.tinkerpop.gremlin.driver.remote.DriverRemoteConnection;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 import org.mockito.MockedStatic;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.Assert.assertNotNull;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -46,21 +47,21 @@ public class NeptuneGremlinConnectionTest {
     private Cluster mockCluster;
     private Client mockClient;
 
-    @BeforeEach
-    void setUp() {
+    @Before
+    public void setUp() {
         mockCluster = mock(Cluster.class);
         mockClient = mock(Client.class);
     }
 
-    @AfterEach
-    void tearDown() {
+    @After
+    public void tearDown() {
         if (connection != null) {
             connection.closeCluster();
         }
     }
 
     @Test
-    void testConstructorWithoutIAM() {
+    public void testConstructorWithoutIAM() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             // Mock Cluster.build()
             Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
@@ -74,8 +75,8 @@ public class NeptuneGremlinConnectionTest {
             
             // Create connection
             connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
-            
-            // Verify builder calls - expect 2 calls due to parent class
+
+
             verify(mockBuilder, times(2)).addContactPoint(TEST_ENDPOINT);
             verify(mockBuilder, times(2)).port(8182);
             verify(mockBuilder, times(2)).enableSsl(true);
@@ -84,7 +85,7 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    void testConstructorWithIAM() {
+    public void testConstructorWithIAM() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             // Mock Cluster.build()
             Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
@@ -100,7 +101,6 @@ public class NeptuneGremlinConnectionTest {
             // Create connection
             connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, true, TEST_REGION);
             
-            // Verify builder calls - expect 2 calls due to parent class
             verify(mockBuilder, times(2)).addContactPoint(TEST_ENDPOINT);
             verify(mockBuilder, times(2)).port(8182);
             verify(mockBuilder, times(2)).enableSsl(true);
@@ -110,25 +110,25 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    void testGetNeptuneClientConnection() {
+    public void testGetNeptuneClientConnection() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             // Mock Cluster.build()
             Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
             mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-            
+
             // Mock builder method chaining
             when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
             when(mockBuilder.port(8182)).thenReturn(mockBuilder);
             when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
             when(mockBuilder.create()).thenReturn(mockCluster);
-            
+
             // Mock cluster.connect()
             when(mockCluster.connect()).thenReturn(mockClient);
-            
+
             // Create connection and get client
             connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
             Client client = connection.getNeptuneClientConnection();
-            
+
             // Verify
             assertNotNull(client);
             verify(mockCluster).connect();
@@ -136,29 +136,29 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    void testGetTraversalSource() {
+    public void testGetTraversalSource() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class);
              MockedStatic<DriverRemoteConnection> mockedConnection = mockStatic(DriverRemoteConnection.class)) {
-            
+
             // Mock Cluster.build()
             Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
             mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-            
+
             // Mock builder method chaining
             when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
             when(mockBuilder.port(8182)).thenReturn(mockBuilder);
             when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
             when(mockBuilder.create()).thenReturn(mockCluster);
-            
+
             // Mock DriverRemoteConnection
             DriverRemoteConnection mockRemoteConnection = mock(DriverRemoteConnection.class);
             mockedConnection.when(() -> DriverRemoteConnection.using(mockClient))
-                          .thenReturn(mockRemoteConnection);
-            
-            // Create connection and get traversal source
+                    .thenReturn(mockRemoteConnection);
+
+
             connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
             GraphTraversalSource traversalSource = connection.getTraversalSource(mockClient);
-            
+
             // Verify
             assertNotNull(traversalSource);
             mockedConnection.verify(() -> DriverRemoteConnection.using(mockClient));
@@ -166,22 +166,22 @@ public class NeptuneGremlinConnectionTest {
     }
 
     @Test
-    void testCloseCluster() {
+    public void testCloseCluster() {
         try (MockedStatic<Cluster> mockedCluster = mockStatic(Cluster.class)) {
             // Mock Cluster.build()
             Cluster.Builder mockBuilder = mock(Cluster.Builder.class);
             mockedCluster.when(Cluster::build).thenReturn(mockBuilder);
-            
+
             // Mock builder method chaining
             when(mockBuilder.addContactPoint(TEST_ENDPOINT)).thenReturn(mockBuilder);
             when(mockBuilder.port(8182)).thenReturn(mockBuilder);
             when(mockBuilder.enableSsl(true)).thenReturn(mockBuilder);
             when(mockBuilder.create()).thenReturn(mockCluster);
-            
+
             // Create connection and close cluster
             connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION);
             connection.closeCluster();
-            
+
             // Verify
             verify(mockCluster).close();
         }

@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package com.amazonaws.athena.connectors.neptune;
 import com.amazonaws.athena.connectors.neptune.propertygraph.NeptuneGremlinConnection;
 import com.amazonaws.athena.connectors.neptune.rdf.NeptuneSparqlConnection;
 import org.apache.tinkerpop.gremlin.driver.Client;
-import org.apache.tinkerpop.gremlin.driver.Cluster;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,11 +32,11 @@ import org.mockito.junit.MockitoJUnitRunner;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.verify;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneConnectionTest {
@@ -47,8 +46,6 @@ public class NeptuneConnectionTest {
 
     @Mock
     private Client mockClient;
-    @Mock
-    private Cluster mockCluster;
     @Mock
     private GraphTraversalSource mockTraversalSource;
     private Map<String, String> configOptions;
@@ -72,7 +69,9 @@ public class NeptuneConnectionTest {
         
         // Verify
         assertNotNull("Connection should not be null", connection);
-        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertThat(connection)
+                .as("Should be instance of NeptuneGremlinConnection")
+                .isInstanceOf(NeptuneGremlinConnection.class);
         assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
         assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
         assertEquals("Region should match", TEST_REGION, connection.getRegion());
@@ -89,7 +88,9 @@ public class NeptuneConnectionTest {
         
         // Verify
         assertNotNull("Connection should not be null", connection);
-        assertTrue("Should be instance of NeptuneSparqlConnection", connection instanceof NeptuneSparqlConnection);
+        assertThat(connection)
+                .as("Should be instance of NeptuneSparqlConnection")
+                .isInstanceOf(NeptuneSparqlConnection.class);
         assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
         assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
         assertEquals("Region should match", TEST_REGION, connection.getRegion());
@@ -98,14 +99,14 @@ public class NeptuneConnectionTest {
 
     @Test
     public void createConnection_WithNullGraphType_ReturnsNeptuneGremlinConnection() {
-        // Setup - don't set graph type to test default behavior
-        
         // Execute
         NeptuneConnection connection = NeptuneConnection.createConnection(configOptions);
         
         // Verify
         assertNotNull("Connection should not be null", connection);
-        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertThat(connection)
+                .as("Should be instance of NeptuneGremlinConnection")
+                .isInstanceOf(NeptuneGremlinConnection.class);
         assertEquals("Endpoint should match", TEST_ENDPOINT, connection.getNeptuneEndpoint());
         assertEquals("Port should match", TEST_PORT, connection.getNeptunePort());
         assertEquals("Region should match", TEST_REGION, connection.getRegion());
@@ -132,16 +133,15 @@ public class NeptuneConnectionTest {
         
         // Verify
         assertNotNull("Connection should not be null", connection);
-        assertTrue("Should be instance of NeptuneGremlinConnection", connection instanceof NeptuneGremlinConnection);
+        assertThat(connection)
+                .as("Should be instance of NeptuneGremlinConnection")
+                .isInstanceOf(NeptuneGremlinConnection.class);
         assertTrue("IAM should be enabled", connection.isEnabledIAM());
     }
 
     @Test
     public void getNeptuneClientConnection_WithValidConnection_ReturnsNonNullClient() {
         NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
-            protected Cluster createCluster() {
-                return mockCluster;
-            }
 
             @Override
             public Client getNeptuneClientConnection() {
@@ -157,9 +157,6 @@ public class NeptuneConnectionTest {
     @Test
     public void getTraversalSource_WithValidClient_ReturnsNonNullTraversalSource() {
         NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
-            protected Cluster createCluster() {
-                return mockCluster;
-            }
 
             @Override
             public GraphTraversalSource getTraversalSource(Client client) {
@@ -171,21 +168,4 @@ public class NeptuneConnectionTest {
         assertNotNull(traversalSource);
         assertEquals(mockTraversalSource, traversalSource);
     }
-
-    @Test
-    public void closeCluster_WhenCalled_InvokesClusterClose() {
-        NeptuneConnection connection = new NeptuneGremlinConnection(TEST_ENDPOINT, TEST_PORT, false, TEST_REGION) {
-            protected Cluster createCluster() {
-                return mockCluster;
-            }
-
-            @Override
-            public void closeCluster() {
-                mockCluster.close();
-            }
-        };
-        
-        connection.closeCluster();
-        verify(mockCluster).close();
-    }
-} 
+}

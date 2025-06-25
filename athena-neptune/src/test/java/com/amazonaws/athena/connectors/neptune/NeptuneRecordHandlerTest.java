@@ -36,10 +36,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,19 +50,18 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneRecordHandlerTest extends TestBase {
@@ -76,16 +71,6 @@ public class NeptuneRecordHandlerTest extends TestBase {
     private static final TableName TABLE_NAME = new TableName("default", "table");
     @Mock
     private NeptuneConnection neptuneConnection;
-    @Mock
-    private GraphTraversalSource mockTraversalSource;
-    @Mock
-    private GraphTraversal<Vertex, Vertex> mockVertexTraversal;
-    @Mock
-    private GraphTraversal<Edge, Edge> mockEdgeTraversal;
-    @Mock
-    private GraphTraversal<?, Map<Object, Object>> mockValueMapTraversal;
-    @Mock
-    private Vertex mockVertex;
     @Mock
     private BlockSpiller spiller;
     @Mock
@@ -117,30 +102,21 @@ public class NeptuneRecordHandlerTest extends TestBase {
         allocator.close();
     }
 
-    private void setupGraphTraversalMocks() {
-        when(mockTraversalSource.V()).thenReturn(mockVertexTraversal);
-        when(mockTraversalSource.E()).thenReturn(mockEdgeTraversal);
-        when(mockVertexTraversal.valueMap()).thenReturn((GraphTraversal) mockValueMapTraversal);
-        when(mockEdgeTraversal.valueMap()).thenReturn((GraphTraversal) mockValueMapTraversal);
-        when(mockValueMapTraversal.hasNext()).thenReturn(true, false);
-        when(mockValueMapTraversal.next()).thenReturn(Collections.singletonMap("id", Collections.singletonList("1")));
-        when(mockVertex.id()).thenReturn("1");
-        when(mockVertex.label()).thenReturn("person");
-        when(mockVertex.values("name")).thenReturn((Iterator) Collections.singletonList("John").iterator());
-        when(mockVertex.values("age")).thenReturn((Iterator) Collections.singletonList(30).iterator());
-    }
-
     @Test
-    public void readWithConstraint_WithRDFGraphType_ExecutesRDFHandlerQuery() throws Exception {
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
+    public void readWithConstraint_WithRDFGraphType_ExecutesRDFHandlerQuery() {
+        try {
+            configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
 
         Schema schema = createRDFSchema();
         ReadRecordsRequest request = createReadRecordsRequest(schema);
 
-        try (MockedConstruction<RDFHandler> mocked = mockConstruction(RDFHandler.class)) {
-            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
-            handler.readWithConstraint(spiller, request, checker);
-            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            try (MockedConstruction<RDFHandler> mocked = mockConstruction(RDFHandler.class)) {
+                handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+                handler.readWithConstraint(spiller, request, checker);
+                verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 
@@ -175,8 +151,9 @@ public class NeptuneRecordHandlerTest extends TestBase {
     }
 
     @Test
-    public void readWithConstraint_WithRDFQueryPassthrough_ExecutesRDFHandlerQuery() throws Exception {
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
+    public void readWithConstraint_WithRDFQueryPassthrough_ExecutesRDFHandlerQuery() {
+        try {
+            configOptions.put(Constants.CFG_GRAPH_TYPE, "RDF");
 
         Schema schema = createRDFSchema();
         Map<String, String> passthroughArgs = new HashMap<>();
@@ -184,36 +161,42 @@ public class NeptuneRecordHandlerTest extends TestBase {
         passthroughArgs.put("database", "default");
         passthroughArgs.put("collection", "triples");
 
-        ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
-        
-        BlockSpiller spiller = mock(BlockSpiller.class);
-        QueryStatusChecker checker = mock(QueryStatusChecker.class);
-        //when(checker.isQueryRunning()).thenReturn(true);
+            ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
 
-        try (MockedConstruction<RDFHandler> mocked = mockConstruction(RDFHandler.class)) {
-            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
-            handler.readWithConstraint(spiller, request, checker);
-            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            BlockSpiller spiller = mock(BlockSpiller.class);
+            QueryStatusChecker checker = mock(QueryStatusChecker.class);
+
+            try (MockedConstruction<RDFHandler> mocked = mockConstruction(RDFHandler.class)) {
+                handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+                handler.readWithConstraint(spiller, request, checker);
+                verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 
     @Test
-    public void readWithConstraint_WithPropertyGraph_ExecutesPropertyGraphHandlerQuery() throws Exception {
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+    public void readWithConstraint_WithPropertyGraph_ExecutesPropertyGraphHandlerQuery() {
+        try {
+            configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
 
-        Schema schema = SchemaBuilder.newBuilder()
-            .addMetadata("componenttype", "vertex")
-            .addStringField("id")
-            .addStringField("name")
-            .addIntField("age")
-            .build();
+            Schema schema = SchemaBuilder.newBuilder()
+                    .addMetadata("componenttype", "vertex")
+                    .addStringField("id")
+                    .addStringField("name")
+                    .addIntField("age")
+                    .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
+            ReadRecordsRequest request = createReadRecordsRequest(schema);
 
-        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
-            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
-            handler.readWithConstraint(spiller, request, checker);
-            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
+                handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+                handler.readWithConstraint(spiller, request, checker);
+                verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 
@@ -239,27 +222,31 @@ public class NeptuneRecordHandlerTest extends TestBase {
     }
 
     @Test
-    public void readWithConstraint_WithPropertyGraphQueryPassthrough_ExecutesPropertyGraphHandlerQuery() throws Exception {
-        configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
+    public void readWithConstraint_WithPropertyGraphQueryPassthrough_ExecutesPropertyGraphHandlerQuery() {
+        try {
+            configOptions.put(Constants.CFG_GRAPH_TYPE, "PROPERTYGRAPH");
 
-        Schema schema = SchemaBuilder.newBuilder()
-            .addMetadata("componenttype", "vertex")
-            .addStringField("id")
-            .addStringField("name")
-            .addIntField("age")
-            .build();
+            Schema schema = SchemaBuilder.newBuilder()
+                    .addMetadata("componenttype", "vertex")
+                    .addStringField("id")
+                    .addStringField("name")
+                    .addIntField("age")
+                    .build();
 
-        Map<String, String> passthroughArgs = new HashMap<>();
-        passthroughArgs.put("system.query", "g.V().hasLabel('person').valueMap()");
-        passthroughArgs.put("database", "default");
-        passthroughArgs.put("collection", "vertices");
+            Map<String, String> passthroughArgs = new HashMap<>();
+            passthroughArgs.put("system.query", "g.V().hasLabel('person').valueMap()");
+            passthroughArgs.put("database", "default");
+            passthroughArgs.put("collection", "vertices");
 
-        ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
+            ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
 
-        try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
-            handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
-            handler.readWithConstraint(spiller, request, checker);
-            verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            try (MockedConstruction<PropertyGraphHandler> mocked = mockConstruction(PropertyGraphHandler.class)) {
+                handler = new NeptuneRecordHandler(amazonS3, awsSecretsManager, athena, neptuneConnection, configOptions);
+                handler.readWithConstraint(spiller, request, checker);
+                verify(mocked.constructed().get(0)).executeQuery(eq(request), any(), any(), any());
+            }
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
         }
     }
 

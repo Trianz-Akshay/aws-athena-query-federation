@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import static com.amazonaws.athena.connectors.neptune.Constants.CFG_GRAPH_TYPE;
 import static com.amazonaws.athena.connectors.neptune.Constants.CFG_PORT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneEnvironmentPropertiesTest {
@@ -48,11 +49,6 @@ public class NeptuneEnvironmentPropertiesTest {
         connectionProperties.put(PORT, "8182");
         connectionProperties.put(CFG_ClUSTER_RES_ID, "test-cluster-id");
         connectionProperties.put(GRAPH_TYPE, "propertygraph");
-
-        // Create environment map with expected values
-        Map<String, String> environment = new HashMap<>();
-        environment.put(CLUSTER_RES_ID, "test-cluster-id");
-        environment.put(GRAPH_TYPE, "propertygraph");
 
         // Create instance and call method
         NeptuneEnvironmentProperties properties = new NeptuneEnvironmentProperties();
@@ -84,8 +80,8 @@ public class NeptuneEnvironmentPropertiesTest {
 
         // Verify results
         assertNotNull("Result should not be null", result);
-        assertEquals("Endpoint should be null", null, result.get(CFG_ENDPOINT));
-        assertEquals("Port should be null", null, result.get(CFG_PORT));
+        assertNull("Endpoint should be null", result.get(CFG_ENDPOINT));
+        assertNull("Port should be null", result.get(CFG_PORT));
         assertEquals("Cluster resource ID should be null", environment.get(CLUSTER_RES_ID), result.get(CFG_ClUSTER_RES_ID));
         assertEquals("Graph type should be null", environment.get(GRAPH_TYPE), result.get(CFG_GRAPH_TYPE));
     }

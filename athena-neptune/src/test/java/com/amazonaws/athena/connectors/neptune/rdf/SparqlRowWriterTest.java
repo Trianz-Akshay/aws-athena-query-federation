@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2024 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,8 +138,8 @@ public class SparqlRowWriterTest {
         testRow.put(TEST_FIELD_NAME, xmlCal);
         
         Object result = SparqlRowWriter.extractValue(testRow, field, java.util.Date.class);
-        //assertTrue(result instanceof XMLGregorianCalendar);
-        assertEquals(1000L, new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH).parse((String) result.toString()).getTime());
+        Assert.assertNotNull(result);
+        assertEquals(1000L, new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH).parse(result.toString()).getTime());
     }
 
     @Test

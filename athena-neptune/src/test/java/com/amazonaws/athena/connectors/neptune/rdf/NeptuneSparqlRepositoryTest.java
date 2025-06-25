@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2024 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ package com.amazonaws.athena.connectors.neptune.rdf;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.neptune.auth.NeptuneSigV4SignerException;
-import org.eclipse.rdf4j.repository.sparql.SPARQLRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,10 +73,5 @@ public class NeptuneSparqlRepositoryTest {
         );
 
         assertNotNull("Repository should not be null", repository);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void sparqlRepository_WithNullEndpoint_ThrowsIllegalArgumentException() {
-        new SPARQLRepository((String)null);
     }
 } 

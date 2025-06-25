@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -76,23 +77,25 @@ public class RDFHandlerTest extends TestBase {
         checker = mock(QueryStatusChecker.class);
         when(checker.isQueryRunning()).thenReturn(true);
         spiller = mock(BlockSpiller.class);
-        doAnswer(invocation -> {
-            return null;
-        }).when(spiller).writeRows(any());
+        doAnswer(invocation -> null).when(spiller).writeRows(any());
     }
 
     @Test
-    public void testExecuteQueryWithSparqlMode() throws Exception {
-        Schema schema = createRDFSchema();
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
-        when(sparqlConnection.hasNext()).thenReturn(true, false);
-        Map<String, Object> result = createTestResult();
-        when(sparqlConnection.next(anyBoolean())).thenReturn(result);
+    public void testExecuteQueryWithSparqlMode() {
+        try {
+            Schema schema = createRDFSchema();
+            ReadRecordsRequest request = createReadRecordsRequest(schema);
+            when(sparqlConnection.hasNext()).thenReturn(true, false);
+            Map<String, Object> result = createTestResult();
+            when(sparqlConnection.next(anyBoolean())).thenReturn(result);
 
-        handler.executeQuery(request, checker, spiller, Collections.emptyMap());
+            handler.executeQuery(request, checker, spiller, Collections.emptyMap());
 
-        verify(sparqlConnection).runQuery(anyString());
-        verify(spiller, times(1)).writeRows(any());
+            verify(sparqlConnection).runQuery(anyString());
+            verify(spiller, times(1)).writeRows(any());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
     }
 
     @Test(expected = RuntimeException.class)
@@ -116,30 +119,34 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test
-    public void testExecuteQueryWithClassMode() throws Exception {
-        Schema schema = SchemaBuilder.newBuilder()
-            .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_CLASS)
-            .addMetadata(Constants.SCHEMA_CLASS_URI, "<http://example.org/Person>")
-            .addMetadata(Constants.SCHEMA_PREDS_PREFIX, "ex")
-            .addMetadata(Constants.SCHEMA_SUBJECT, "person")
-            .addStringField("person")
-            .addStringField("name")
-            .addStringField("age")
-            .build();
+    public void testExecuteQueryWithClassMode() {
+        try {
+            Schema schema = SchemaBuilder.newBuilder()
+                    .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_CLASS)
+                    .addMetadata(Constants.SCHEMA_CLASS_URI, "<http://example.org/Person>")
+                    .addMetadata(Constants.SCHEMA_PREDS_PREFIX, "ex")
+                    .addMetadata(Constants.SCHEMA_SUBJECT, "person")
+                    .addStringField("person")
+                    .addStringField("name")
+                    .addStringField("age")
+                    .build();
 
-        ReadRecordsRequest request = createReadRecordsRequest(schema);
-        when(sparqlConnection.hasNext()).thenReturn(true, false);
-        Map<String, Object> result = new HashMap<>();
-        result.put("person", "http://example.org/person1");
-        result.put("name", "John Doe");
-        result.put("age", "30");
-        when(sparqlConnection.next(anyBoolean())).thenReturn(result);
-        when(checker.isQueryRunning()).thenReturn(true);
+            ReadRecordsRequest request = createReadRecordsRequest(schema);
+            when(sparqlConnection.hasNext()).thenReturn(true, false);
+            Map<String, Object> result = new HashMap<>();
+            result.put("person", "http://example.org/person1");
+            result.put("name", "John Doe");
+            result.put("age", "30");
+            when(sparqlConnection.next(anyBoolean())).thenReturn(result);
+            when(checker.isQueryRunning()).thenReturn(true);
 
-        handler.executeQuery(request, checker, spiller, Collections.emptyMap());
+            handler.executeQuery(request, checker, spiller, Collections.emptyMap());
 
-        verify(sparqlConnection).runQuery(anyString());
-        verify(spiller, times(1)).writeRows(any());
+            verify(sparqlConnection).runQuery(anyString());
+            verify(spiller, times(1)).writeRows(any());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
     }
 
     @Test(expected = RuntimeException.class)
@@ -169,31 +176,35 @@ public class RDFHandlerTest extends TestBase {
     }
 
     @Test
-    public void testRDFQueryPassthrough() throws Exception {
-        Schema schema = SchemaBuilder.newBuilder()
-            .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_SPARQL)
-            .addMetadata("schema.type", "sparql")
-            .addMetadata("schema.function", "system.query")
-            .addStringField("s")
-            .addStringField("p")
-            .addStringField("o")
-            .build();
+    public void testRDFQueryPassthrough() {
+        try {
+            Schema schema = SchemaBuilder.newBuilder()
+                    .addMetadata(Constants.SCHEMA_QUERY_MODE, Constants.QUERY_MODE_SPARQL)
+                    .addMetadata("schema.type", "sparql")
+                    .addMetadata("schema.function", "system.query")
+                    .addStringField("s")
+                    .addStringField("p")
+                    .addStringField("o")
+                    .build();
 
-        Map<String, String> passthroughArgs = new HashMap<>();
-        passthroughArgs.put("schemaFunctionName", "SYSTEM.QUERY");
-        passthroughArgs.put(NeptuneQueryPassthrough.DATABASE, "default");
-        passthroughArgs.put(NeptuneQueryPassthrough.COLLECTION, "triples");
-        passthroughArgs.put(NeptuneQueryPassthrough.QUERY, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+            Map<String, String> passthroughArgs = new HashMap<>();
+            passthroughArgs.put("schemaFunctionName", "SYSTEM.QUERY");
+            passthroughArgs.put(NeptuneQueryPassthrough.DATABASE, "default");
+            passthroughArgs.put(NeptuneQueryPassthrough.COLLECTION, "triples");
+            passthroughArgs.put(NeptuneQueryPassthrough.QUERY, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
 
-        ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
-        when(sparqlConnection.hasNext()).thenReturn(true, false);
-        Map<String, Object> result = createTestResult();
-        when(sparqlConnection.next(anyBoolean())).thenReturn(result);
+            ReadRecordsRequest request = createReadRecordsRequestWithPassthrough(schema, passthroughArgs);
+            when(sparqlConnection.hasNext()).thenReturn(true, false);
+            Map<String, Object> result = createTestResult();
+            when(sparqlConnection.next(anyBoolean())).thenReturn(result);
 
-        handler.executeQuery(request, checker, spiller, Collections.emptyMap());
+            handler.executeQuery(request, checker, spiller, Collections.emptyMap());
 
-        verify(sparqlConnection).runQuery(anyString());
-        verify(spiller, times(1)).writeRows(any());
+            verify(sparqlConnection).runQuery(anyString());
+            verify(spiller, times(1)).writeRows(any());
+        } catch (Exception e) {
+            fail("Unexpected exception: " + e.getMessage());
+        }
     }
 
     private Map<String, Object> createTestResult() {

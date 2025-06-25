@@ -2,7 +2,7 @@
  * #%L
  * athena-neptune
  * %%
- * Copyright (C) 2019 - 2024 Amazon Web Services
+ * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,14 @@ import com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthr
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockitoAnnotations;
-import org.slf4j.Logger;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 public class NeptuneQueryPassthroughTest {
     private NeptuneQueryPassthrough queryPassthrough;
@@ -58,13 +56,6 @@ public class NeptuneQueryPassthroughTest {
     public void getFunctionArguments_WhenCalled_ReturnsExpectedArgumentsList() {
         List<String> expectedArgs = Arrays.asList("DATABASE", "COLLECTION", "QUERY");
         assertEquals(expectedArgs, queryPassthrough.getFunctionArguments());
-    }
-
-    @Test
-    public void getLogger_WhenCalled_ReturnsNonNullLoggerWithCorrectName() {
-        Logger logger = queryPassthrough.getLogger();
-        assertNotNull(logger);
-        assertEquals("com.amazonaws.athena.connectors.neptune.qpt.NeptuneQueryPassthrough", logger.getName());
     }
 
     @Test
@@ -138,7 +129,8 @@ public class NeptuneQueryPassthroughTest {
 
     @Test
     public void neptuneQueryPassthrough_WhenInstantiated_ImplementsQueryPassthroughSignature() {
-        assertTrue(queryPassthrough instanceof QueryPassthroughSignature);
+        assertThat(queryPassthrough)
+                .isInstanceOf(QueryPassthroughSignature.class);
     }
 
     @Test

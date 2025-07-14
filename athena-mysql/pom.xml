@@ -33,6 +33,13 @@
             <artifactId>protobuf-java</artifactId>
             <version>${protobuf3.version}</version>
         </dependency>
+
+        <!-- StringTemplate dependency for template-based query building -->
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>ST4</artifactId>
+            <version>4.3.4</version>
+        </dependency>
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
@@ -67,6 +74,7 @@
     </dependencies>
     <build>
         <plugins>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

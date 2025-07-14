@@ -25,6 +25,7 @@ import com.amazonaws.athena.connector.credentials.CredentialsProviderFactory;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
+import com.amazonaws.athena.connectors.jdbc.BaseSqlUtils;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
@@ -32,9 +33,11 @@ import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.sqlserver.query.SqlServerQueryFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
@@ -42,13 +45,17 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.sqlserver.SqlServerConstants.SQLSERVER_QUOTE_CHARACTER;
 
 public class SqlServerRecordHandler extends JdbcRecordHandler
 {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SqlServerRecordHandler.class);
     private static final int FETCH_SIZE = 1000;
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
+    private final List<Object> parameterValues = new ArrayList<>();
+    private final BaseSqlUtils sqlUtils;
 
     public SqlServerRecordHandler(java.util.Map<String, String> configOptions)
     {
@@ -72,7 +79,7 @@ public class SqlServerRecordHandler extends JdbcRecordHandler
                            final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
+        this.sqlUtils = new BaseSqlUtils(new SqlServerQueryFactory(SQLSERVER_QUOTE_CHARACTER));
     }
 
     @Override
@@ -85,8 +92,14 @@ public class SqlServerRecordHandler extends JdbcRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(),
-                    schema, constraints, split);
+            // Use StringTemplate approach for building SQL
+            String sql = sqlUtils.buildSql(tableName, schema, constraints, parameterValues, split);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+            LOGGER.debug("SQL :{}", sql);
+            // Set parameter values
+            for (int i = 0; i < parameterValues.size(); i++) {
+                preparedStatement.setObject(i + 1, parameterValues.get(i));
+            }
         }
         // Disable fetching all rows.
         preparedStatement.setFetchSize(FETCH_SIZE);

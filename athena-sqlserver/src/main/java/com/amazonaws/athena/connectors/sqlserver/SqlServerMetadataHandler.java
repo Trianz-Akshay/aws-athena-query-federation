@@ -461,18 +461,30 @@ public class SqlServerMetadataHandler extends JdbcMetadataHandler
                 dataType = hashMap.get(columnName);
                 LOGGER.debug("columnName: " + columnName);
                 LOGGER.debug("dataType: " + dataType);
+                LOGGER.debug("JDBC DATA_TYPE: " + resultSet.getInt("DATA_TYPE"));
+                LOGGER.debug("JDBC COLUMN_SIZE: " + resultSet.getInt("COLUMN_SIZE"));
+                LOGGER.debug("JDBC DECIMAL_DIGITS: " + resultSet.getInt("DECIMAL_DIGITS"));
+                LOGGER.debug("Initial columnType from JdbcArrowTypeConverter: " + columnType);
 
                 if (dataType != null && SqlServerDataType.isSupported(dataType)) {
+                    LOGGER.debug("SqlServerDataType.isSupported(" + dataType + ") = true, using SqlServerDataType.fromType()");
                     columnType = Optional.of(SqlServerDataType.fromType(dataType));
+                }
+                else if (dataType != null) {
+                    LOGGER.debug("SqlServerDataType.isSupported(" + dataType + ") = false, dataType not supported");
+                }
+                else {
+                    LOGGER.debug("dataType is null, using JdbcArrowTypeConverter result");
                 }
                 /**
                  * converting into VARCHAR for non supported data types.
                  */
                 if (columnType.isEmpty() || !SupportedTypes.isSupported(columnType.get())) {
+                    LOGGER.debug("Converting to VARCHAR because columnType is empty or not supported");
                     columnType = Optional.of(Types.MinorType.VARCHAR.getType());
                 }
 
-                LOGGER.debug("columnType: " + columnType);
+                LOGGER.debug("Final columnType: " + columnType);
                 if (columnType.isPresent() && SupportedTypes.isSupported(columnType.get())) {
                     schemaBuilder.addField(FieldBuilder.newBuilder(columnName, columnType.get()).build());
                     found = true;

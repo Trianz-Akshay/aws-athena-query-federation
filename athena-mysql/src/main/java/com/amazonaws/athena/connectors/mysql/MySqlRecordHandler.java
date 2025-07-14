@@ -22,6 +22,7 @@ package com.amazonaws.athena.connectors.mysql;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
+import com.amazonaws.athena.connectors.jdbc.BaseSqlUtils;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
@@ -29,9 +30,9 @@ import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.mysql.query.MySqlQueryFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
@@ -41,6 +42,8 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DEFAULT_PORT;
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DRIVER_CLASS;
@@ -56,8 +59,8 @@ public class MySqlRecordHandler
 
     @VisibleForTesting
     protected static final String MYSQL_QUOTE_CHARACTER = "`";
-
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
+    private final List<Object> parameterValues = new ArrayList<>();
+    private final BaseSqlUtils sqlUtils;
 
     /**
      * Instantiates handler to be used by Lambda function directly.
@@ -77,7 +80,7 @@ public class MySqlRecordHandler
     public MySqlRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(), AthenaClient.create(),
-                jdbcConnectionFactory, new MySqlQueryStringBuilder(MYSQL_QUOTE_CHARACTER, new MySqlFederationExpressionParser(MYSQL_QUOTE_CHARACTER)), configOptions);
+                jdbcConnectionFactory, null, configOptions);
     }
 
     @VisibleForTesting
@@ -85,7 +88,7 @@ public class MySqlRecordHandler
             final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
+        this.sqlUtils = new BaseSqlUtils(new MySqlQueryFactory(MYSQL_QUOTE_CHARACTER));
     }
 
     @Override
@@ -98,7 +101,14 @@ public class MySqlRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate approach for building SQL
+            String sql = sqlUtils.buildSql(tableName, schema, constraints, parameterValues, split);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+            LOGGER.debug("SQL :{}", sql);
+            // Set parameter values
+            for (int i = 0; i < parameterValues.size(); i++) {
+                preparedStatement.setObject(i + 1, parameterValues.get(i));
+            }
         }
         // Disable fetching all rows.
         preparedStatement.setFetchSize(Integer.MIN_VALUE);

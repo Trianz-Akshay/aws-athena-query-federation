@@ -32,6 +32,12 @@
             <artifactId>mssql-jdbc</artifactId>
             <version>${mssql.jdbc.version}</version>
         </dependency>
+        <!-- StringTemplate dependency for template-based query building -->
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>ST4</artifactId>
+            <version>4.3.4</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/software.amazon.awssdk/rds -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>

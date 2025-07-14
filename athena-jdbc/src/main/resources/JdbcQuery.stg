@@ -1,0 +1,294 @@
+// NOTE: This template is not used in production code - kept for StringTemplate file structure
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: BaseQueryBuilder.java
+ *@Description: This template is used to build JDBC SELECT statements with constraints, ordering, and limits.
+ *@param builder An Instance of BaseQueryBuilder.
+ *@param quoteChar The character to use for quoting identifiers (e.g., ` for MySQL, [ for SQL Server).
+ *@return A SQL query that can be executed by the JDBC database.
+ */
+select_query(builder, quoteChar) ::= <%
+    SELECT <if(builder.projection)><first(builder.projection): {col | <quoteChar><col><quoteChar>}><rest(builder.projection): {col | , <quoteChar><col><quoteChar>}><else>*<endif> FROM <quoteChar><builder.schemaName><quoteChar>.<quoteChar><builder.tableName><quoteChar><if(builder.conjuncts)>  WHERE <first(builder.conjuncts): {conjunct | (<conjunct>)}><rest(builder.conjuncts): {conjunct | AND (<conjunct>)}><endif><if(builder.orderByClause)>  <builder.orderByClause><endif><if(builder.limitClause)>  <builder.limitClause><endif>
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for IN predicates with parameterized values.
+ *@param columnName The column name with appropriate quoting.
+ *@param counts List of parameter positions.
+ *@param quoteChar The character to use for quoting identifiers.
+ *@return An IN predicate like column IN (?, ?)
+ */
+in_predicate(columnName, counts, quoteChar) ::= <%
+    <quoteChar><columnName><quoteChar> IN (<counts:{c|?}; separator=",">)
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for range predicates with AND logic.
+ *@param conjuncts List of conjuncts to join with AND.
+ *@return A range predicate with proper parentheses.
+ */
+range_predicate(conjuncts) ::= <%
+    (<first(conjuncts): {conjunct | <conjunct>}><rest(conjuncts): {conjunct | AND <conjunct>}>)
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for comparison predicates.
+ *@param columnName The column name with appropriate quoting.
+ *@param operator The comparison operator.
+ *@param quoteChar The character to use for quoting identifiers.
+ *@return A comparison predicate like column = ?
+ */
+comparison_predicate(columnName, operator, quoteChar) ::= <%
+    (<quoteChar><columnName><quoteChar> <operator> ?)
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for OR predicates.
+ *@param conjuncts List of conjuncts to join with OR.
+ *@return An OR predicate with proper parentheses.
+ */
+or_predicate(conjuncts) ::= <%
+    (<first(conjuncts): {conjunct | <conjunct>}><rest(conjuncts): {conjunct | OR <conjunct>}>)
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for NULL checking predicates and expressions.
+ *@param columnName The column name or expression (with appropriate quoting).
+ *@param isNull Whether checking for NULL (true) or NOT NULL (false).
+ *@param quoteChar The character to use for quoting identifiers.
+ *@return A null predicate like column IS NULL or column IS NOT NULL
+ */
+null_predicate(columnName, isNull, quoteChar) ::= <%
+    <quoteChar><columnName><quoteChar> IS <if(isNull)>NULL<else>NOT NULL<endif>
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for LIKE pattern matching predicates.
+ *@param columnName The column name with appropriate quoting.
+ *@param quoteChar The character to use for quoting identifiers.
+ *@return A LIKE predicate like `column` LIKE ?
+ */
+like_predicate(columnName, quoteChar) ::= <%
+    <quoteChar><columnName><quoteChar> LIKE ?
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for BETWEEN range predicates.
+ *@param columnName The column name with appropriate quoting.
+ *@param quoteChar The character to use for quoting identifiers.
+ *@return A BETWEEN predicate like `column` BETWEEN ? AND ?
+ */
+between_predicate(columnName, quoteChar) ::= <%
+    <quoteChar><columnName><quoteChar> BETWEEN ? AND ?
+%>
+
+/**
+ *@UsedBy: BasePredicateBuilder.java
+ *@Description: Template for combining multiple predicates with OR.
+ *@param disjuncts List of predicates to join with OR.
+ *@param wrapInParens Whether to wrap each disjunct in parentheses (default: true).
+ *@return Combined predicates like (pred1) OR (pred2) or pred1 OR pred2
+ */
+or_predicate_with_wrapping(disjuncts, wrapInParens) ::= <%
+    <if(wrapInParens)><disjuncts:{d | (<d>)}; separator=" OR "><else><disjuncts; separator=" OR "><endif>
+%>
+
+/**
+ *@UsedBy: BaseSqlUtils.java
+ *@Description: Template for combining WHERE clauses with AND.
+ *@param clauses List of WHERE clause conditions to join with AND.
+ *@return A WHERE clause like clause1 AND clause2 AND clause3
+ */
+where_clause(clauses) ::= <%
+    <clauses; separator=" AND ">
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for binary operators (arithmetic and comparison).
+ *@param left Left operand.
+ *@param operator The operator (+, -, *, /, =, >, <, >=, <=, <>, etc.).
+ *@param right Right operand.
+ *@return A binary expression like (left + right)
+ */
+binary_operator(left, operator, right) ::= <%
+    (<left> <operator> <right>)
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for function calls with two arguments.
+ *@param functionName The function name.
+ *@param arg1 First argument.
+ *@param arg2 Second argument.
+ *@return A function call like MOD(arg1, arg2)
+ */
+function_call_2args(functionName, arg1, arg2) ::= <%
+    <functionName>(<arg1>, <arg2>)
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for unary operators.
+ *@param operator The unary operator (-, NOT, etc.).
+ *@param operand The operand.
+ *@return A unary expression like (-operand) or (NOT operand)
+ */
+unary_operator(operator, operand) ::= <%
+    (<operator><operand>)
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for IN expressions.
+ *@param column The column or expression.
+ *@param values The values for IN clause.
+ *@return An IN expression like (column IN values)
+ */
+in_expression(column, values) ::= <%
+    (<column> IN <values>)
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for IS DISTINCT FROM expressions.
+ *@param left Left operand.
+ *@param right Right operand.
+ *@return An IS DISTINCT FROM expression
+ */
+is_distinct_from(left, right) ::= <%
+    <left> IS DISTINCT FROM <right>
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for LIKE expressions.
+ *@param column The column.
+ *@param pattern The pattern.
+ *@return A LIKE expression
+ */
+like_expression(column, pattern) ::= <%
+    <column> LIKE <pattern>
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java
+ *@Description: Template for wrapping expressions in parentheses.
+ *@param expression The expression to wrap.
+ *@return A parenthesized expression
+ */
+parenthesized_expression(expression) ::= <%
+    (<expression>)
+%>
+
+/**
+ *@UsedBy: BaseFederationExpressionParser.java, BaseSqlUtils.java
+ *@Description: Template for comma-separated lists with configurable spacing.
+ *@param items List of items to join with commas.
+ *@param separator The separator to use (default: ",").
+ *@return A comma-separated list like item1,item2,item3 or item1, item2, item3
+ */
+comma_separated_list(items, separator) ::= <%
+    <items; separator=separator>
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building SELECT queries with optional WHERE clauses and ORDER BY
+ * @param builder An instance of BaseQueryStringBuilder
+ * @param quoteChar The character to use for quoting identifiers
+ * @return A complete SELECT query string
+ */
+templateJdbcSelectQuery(builder, quoteChar) ::= <%
+SELECT <builder.columnList> FROM <builder.fromClause> <builder.whereClause> <builder.orderByClause>
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building WHERE clauses with conditions
+ * @param conditions List of WHERE conditions
+ * @return A WHERE clause string
+ */
+templateWhereClause(conditions) ::= <%
+WHERE <conditions; separator=" AND ">
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building ORDER BY clauses
+ * @param orderByFields List of ORDER BY fields with directions
+ * @return An ORDER BY clause string
+ */
+templateOrderByClause(orderByFields) ::= <%
+ORDER BY <orderByFields; separator=", ">
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building column lists
+ * @param columns List of column names
+ * @param quoteChar The character to use for quoting identifiers
+ * @return A comma-separated column list
+ */
+templateColumnList(columns, quoteChar) ::= <%
+<columns:{col | <quoteChar><col><quoteChar>}; separator=", ">
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building FROM clauses with optional partition
+ * @param tableName The fully qualified table name
+ * @param partitionName Optional partition name
+ * @return A FROM clause string
+ */
+templateFromClause(tableName, partitionName) ::= <%
+<if(partitionName)><tableName> PARTITION(<partitionName>)<else><tableName><endif>
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building individual WHERE conditions
+ * @param columnName The column name
+ * @param operator The comparison operator
+ * @param value The value to compare against
+ * @param quoteChar The character to use for quoting identifiers
+ * @return A WHERE condition string
+ */
+templateWhereCondition(columnName, operator, value, quoteChar) ::= <%
+<quoteChar><columnName><quoteChar> <operator> <value>
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building ORDER BY field with direction
+ * @param columnName The column name
+ * @param direction The sort direction (ASC/DESC)
+ * @param quoteChar The character to use for quoting identifiers
+ * @return An ORDER BY field string
+ */
+templateOrderByField(columnName, direction, quoteChar) ::= <%
+<quoteChar><columnName><quoteChar> <direction>
+%>
+
+/**
+ * @UsedBy: BaseQueryStringBuilder.java
+ * @Description: Template for building NULL handling in ORDER BY
+ * @param columnName The column name
+ * @param nullsFirst Whether NULLs should come first
+ * @param quoteChar The character to use for quoting identifiers
+ * @param nullFunction The database-specific NULL function (e.g., ISNULL for SQL Server, IFNULL for MySQL)
+ * @return A NULL handling clause string
+ */
+templateNullsClause(columnName, nullsFirst, quoteChar, nullFunction) ::= <%
+<nullFunction>(<quoteChar><columnName><quoteChar>) <if(nullsFirst)>ASC<else>DESC<endif>
+%> 

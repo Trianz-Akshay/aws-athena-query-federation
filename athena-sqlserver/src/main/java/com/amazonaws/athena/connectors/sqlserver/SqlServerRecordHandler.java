@@ -32,7 +32,6 @@ import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFact
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
 import com.amazonaws.athena.connectors.sqlserver.query.SqlServerQueryFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -71,12 +70,12 @@ public class SqlServerRecordHandler extends JdbcRecordHandler
     public SqlServerRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(),
-                AthenaClient.create(), jdbcConnectionFactory, new SqlServerQueryStringBuilder(SQLSERVER_QUOTE_CHARACTER, new SqlServerFederationExpressionParser(SQLSERVER_QUOTE_CHARACTER)), configOptions);
+                AthenaClient.create(), jdbcConnectionFactory, configOptions);
     }
 
     @VisibleForTesting
     SqlServerRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, final S3Client amazonS3, final SecretsManagerClient secretsManager,
-                           final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+                           final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
         this.sqlUtils = new BaseSqlUtils(new SqlServerQueryFactory(SQLSERVER_QUOTE_CHARACTER));

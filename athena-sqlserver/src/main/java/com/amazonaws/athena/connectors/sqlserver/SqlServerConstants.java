@@ -26,5 +26,17 @@ public final class SqlServerConstants
     public static final int DEFAULT_PORT = 1433;
     public static final String SQLSERVER_QUOTE_CHARACTER = "\"";
     static final String PARTITION_NUMBER = "partition_number";
+    
+    // OAuth related constants
+    public static final String CLIENT_ID = "client_id";
+    public static final String CLIENT_SECRET = "client_secret";
+    public static final String TENANT_ID = "tenant_id";
+    public static final String ACCESS_TOKEN = "access_token";
+    public static final String FETCHED_AT = "fetched_at";
+    public static final String EXPIRES_IN = "expires_in";
+    public static final String USERNAME = "username";
+    public static final String PASSWORD = "password";
+    public static final String USER = "user";
+    
     private SqlServerConstants() {}
 }

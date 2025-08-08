@@ -62,8 +62,19 @@ public class SqlServerJdbcConnectionFactory extends GenericJdbcConnectionFactory
             final String derivedJdbcString;
             if (null != credentialsProvider) {
                 Matcher secretMatcher = SECRET_NAME_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString());
-                // replace aws secret value with credentials and change username as user
-                final String secretReplacement = String.format("%s;%s", "user=" + credentialsProvider.getCredential().getUser(), "password=" + credentialsProvider.getCredential().getPassword());
+                final String secretReplacement;
+                if (databaseConnectionConfig.getJdbcConnectionString().contains("authentication=ActiveDirectoryServicePrincipal")) {
+                    // Set AADSecurePrincipal credentials for OAuth
+                    secretReplacement = String.format(
+                        "%s;%s",
+                        "AADSecurePrincipalId=" + credentialsProvider.getCredential().getUser(),
+                        "AADSecurePrincipalSecret=" + credentialsProvider.getCredential().getPassword()
+                    );
+                }
+                else {
+                    // replace aws secret value with credentials and change username as user
+                    secretReplacement = String.format("%s;%s", "user=" + credentialsProvider.getCredential().getUser(), "password=" + credentialsProvider.getCredential().getPassword());
+                }
                 derivedJdbcString = secretMatcher.replaceAll(Matcher.quoteReplacement(secretReplacement));
             }
             else {

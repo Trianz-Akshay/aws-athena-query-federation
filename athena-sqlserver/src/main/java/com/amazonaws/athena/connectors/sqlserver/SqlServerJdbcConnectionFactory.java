@@ -21,6 +21,7 @@
 package com.amazonaws.athena.connectors.sqlserver;
 
 import com.amazonaws.athena.connector.credentials.CredentialsProvider;
+import com.amazonaws.athena.connector.credentials.DefaultCredentials;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
@@ -62,8 +63,35 @@ public class SqlServerJdbcConnectionFactory extends GenericJdbcConnectionFactory
             final String derivedJdbcString;
             if (null != credentialsProvider) {
                 Matcher secretMatcher = SECRET_NAME_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString());
-                // replace aws secret value with credentials and change username as user
-                final String secretReplacement = String.format("%s;%s", "user=" + credentialsProvider.getCredential().getUser(), "password=" + credentialsProvider.getCredential().getPassword());
+                final String secretReplacement;
+                if (databaseConnectionConfig.getJdbcConnectionString().contains("authentication=ActiveDirectoryServicePrincipal")) {
+                    // Set AADSecurePrincipal credentials for OAuth
+                    secretReplacement = String.format(
+                        "%s;%s",
+                        "AADSecurePrincipalId=" + credentialsProvider.getCredential().getUser(),
+                        "AADSecurePrincipalSecret=" + credentialsProvider.getCredential().getPassword()
+                    );
+                }
+                else {
+                    SqlServerCredentialsProvider synapseProvider = (SqlServerCredentialsProvider) credentialsProvider;
+                    String accessToken = synapseProvider.getOAuthAccessToken();
+
+                    if (accessToken != null) {
+                        // OAuth token
+                        this.jdbcProperties.setProperty("accessToken", accessToken);
+                        secretReplacement = "";
+                    }
+                    else {
+                        // Fallback to username/password and change username as user
+                        DefaultCredentials credentials = synapseProvider.getCredential();
+                        secretReplacement = String.format(
+                                "%s;%s",
+                                "user=" + credentials.getUser(),
+                                "password=" + credentials.getPassword()
+                        );
+                    }
+                }
+
                 derivedJdbcString = secretMatcher.replaceAll(Matcher.quoteReplacement(secretReplacement));
             }
             else {

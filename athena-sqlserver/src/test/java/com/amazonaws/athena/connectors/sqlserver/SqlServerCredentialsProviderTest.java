@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 @RunWith(MockitoJUnitRunner.class)
 public class SqlServerCredentialsProviderTest
 {
-    private static final String TEST_SECRET_NAME = "test-synapse-secret";
+    private static final String TEST_SECRET_NAME = "test-sqlserver-secret";
     private static final String TEST_CLIENT_ID = "test-client-id";
     private static final String TEST_CLIENT_SECRET = "test-client-secret";
     private static final String TEST_TENANT_ID = "test-tenant-id";
@@ -62,20 +62,26 @@ public class SqlServerCredentialsProviderTest
     private static final String TEST_PASSWORD = "testpass";
     private static final String USER_KEY = "user";
     private static final String PASSWORD_KEY = "password";
+    private static final String ACCESS_TOKEN_KEY = "accessToken";
 
     @Mock
     private SecretsManagerClient mockSecretsClient;
 
+    @Mock
+    private HttpClient mockHttpClient;
+
     private SqlServerCredentialsProvider credentialsProvider;
     private MockedStatic<SecretsManagerClient> mockedSecretsManager;
-    private MockedStatic<HttpClient> mockedHttpClientStatic;
+    private MockedStatic<HttpClient> mockedHttpClient;
 
     @Before
     public void setUp()
     {
         mockedSecretsManager = mockStatic(SecretsManagerClient.class);
         mockedSecretsManager.when(SecretsManagerClient::create).thenReturn(mockSecretsClient);
-        credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME);
+
+        mockedHttpClient = mockStatic(HttpClient.class);
+        mockedHttpClient.when(HttpClient::newHttpClient).thenReturn(mockHttpClient);
     }
 
     @After
@@ -84,8 +90,8 @@ public class SqlServerCredentialsProviderTest
         if (mockedSecretsManager != null) {
             mockedSecretsManager.close();
         }
-        if (mockedHttpClientStatic != null) {
-            mockedHttpClientStatic.close();
+        if (mockedHttpClient != null) {
+            mockedHttpClient.close();
         }
     }
 
@@ -96,8 +102,11 @@ public class SqlServerCredentialsProviderTest
             String secretJson = createOAuthSecretJson();
             mockSecretResponse(secretJson);
             mockHttpClientForTokenFetch(200, createTokenResponse(TEST_ACCESS_TOKEN));
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
             Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
             assertNotNull(credentialMap);
+            assertNotNull(credentialMap.get(ACCESS_TOKEN_KEY));
             assertNull(credentialMap.get(USER_KEY));
             assertNull(credentialMap.get(PASSWORD_KEY));
         }
@@ -112,6 +121,8 @@ public class SqlServerCredentialsProviderTest
         try {
             String secretJson = createStandardSecretJson();
             mockSecretResponse(secretJson);
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
             Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
             assertNotNull(credentialMap);
             assertEquals(TEST_USERNAME, credentialMap.get(USER_KEY));
@@ -123,14 +134,17 @@ public class SqlServerCredentialsProviderTest
     }
 
     @Test
-    public void testGetOAuthAccessTokenWithValidUnexpiredToken()
+    public void testGetCredentialMapWithValidUnexpiredToken()
     {
         try {
             long now = Instant.now().getEpochSecond();
             String secretJson = createOAuthSecretJsonWithValidToken(now);
             mockSecretResponse(secretJson);
-            String token = credentialsProvider.getOAuthAccessToken();
-            assertEquals(TEST_ACCESS_TOKEN, token);
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
+            Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
+            assertNotNull(credentialMap);
+            assertEquals(TEST_ACCESS_TOKEN, credentialMap.get(ACCESS_TOKEN_KEY));
         }
         catch (Exception e) {
             fail("Should not throw exception: " + e.getMessage());
@@ -138,15 +152,18 @@ public class SqlServerCredentialsProviderTest
     }
 
     @Test
-    public void testGetOAuthAccessTokenWithExpiredTokenFetchesNewToken()
+    public void testGetCredentialMapWithExpiredTokenFetchesNewToken()
     {
         try {
             long expiredFetchedAt = (Instant.now().getEpochSecond()) - 4000;
             String secretJson = createOAuthSecretJsonWithExpiredToken(expiredFetchedAt);
             mockSecretResponse(secretJson);
             mockHttpClientForTokenFetch(200, createTokenResponse("new-access-token"));
-            String token = credentialsProvider.getOAuthAccessToken();
-            assertEquals("new-access-token", token);
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
+            Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
+            assertNotNull(credentialMap);
+            assertEquals("new-access-token", credentialMap.get(ACCESS_TOKEN_KEY));
         }
         catch (Exception e) {
             fail("Should not throw exception: " + e.getMessage());
@@ -154,13 +171,18 @@ public class SqlServerCredentialsProviderTest
     }
 
     @Test
-    public void testGetOAuthAccessTokenWithNotOAuthConfigured()
+    public void testGetCredentialMapWithNotOAuthConfigured()
     {
         try {
             String secretJson = createStandardSecretJson();
             mockSecretResponse(secretJson);
-            String token = credentialsProvider.getOAuthAccessToken();
-            assertNull(token);
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
+            Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
+            assertNotNull(credentialMap);
+            assertNull(credentialMap.get(ACCESS_TOKEN_KEY));
+            assertEquals(TEST_USERNAME, credentialMap.get(USER_KEY));
+            assertEquals(TEST_PASSWORD, credentialMap.get(PASSWORD_KEY));
         }
         catch (Exception e) {
             fail("Should not throw exception: " + e.getMessage());
@@ -168,31 +190,35 @@ public class SqlServerCredentialsProviderTest
     }
 
     @Test
-    public void testGetOAuthAccessTokenWithHttpError() throws Exception
+    public void testGetCredentialMapWithHttpError()
     {
         try {
             long expiredFetchedAt = (Instant.now().getEpochSecond()) - 4000;
             String secretJson = createOAuthSecretJsonWithExpiredToken(expiredFetchedAt);
             mockSecretResponse(secretJson);
-            mockHttpClientForTokenFetch(400, "error");
-            credentialsProvider.getOAuthAccessToken();
+            mockHttpClientForTokenFetch(401, "Unauthorized");
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
+            credentialsProvider.getCredentialMap();
             fail("Expected AthenaConnectorException");
         }
         catch (AthenaConnectorException e) {
-            assertEquals(FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION.toString(),
+            assertEquals(FederationSourceErrorCode.INVALID_CREDENTIALS_EXCEPTION.toString(),
                     e.getErrorDetails().errorCode());
         }
     }
 
     @Test
-    public void testGetOAuthAccessTokenWithInvalidJson() throws Exception
+    public void testGetCredentialMapWithInvalidTokenResponse()
     {
         try {
             long expiredFetchedAt = (Instant.now().getEpochSecond()) - 4000;
             String secretJson = createOAuthSecretJsonWithExpiredToken(expiredFetchedAt);
             mockSecretResponse(secretJson);
             mockHttpClientForTokenFetch(200, "not-a-json");
-            credentialsProvider.getOAuthAccessToken();
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
+            credentialsProvider.getCredentialMap();
             fail("Expected AthenaConnectorException");
         }
         catch (AthenaConnectorException e) {
@@ -207,6 +233,8 @@ public class SqlServerCredentialsProviderTest
         try {
             when(mockSecretsClient.getSecretValue(any(GetSecretValueRequest.class)))
                     .thenThrow(ResourceNotFoundException.builder().message("Secret not found").build());
+            credentialsProvider = new SqlServerCredentialsProvider(TEST_SECRET_NAME, mockSecretsClient, mockHttpClient);
+
             credentialsProvider.getCredentialMap();
             fail("Expected AthenaConnectorException");
         }
@@ -222,15 +250,17 @@ public class SqlServerCredentialsProviderTest
                 .thenReturn(GetSecretValueResponse.builder().secretString(secretJson).build());
     }
 
-    private void mockHttpClientForTokenFetch(int statusCode, String responseBody) throws Exception
+    private void mockHttpClientForTokenFetch(int statusCode, String responseBody)
     {
-        mockedHttpClientStatic = mockStatic(HttpClient.class);
-        HttpClient mockHttpClient = mock(HttpClient.class);
-        HttpResponse<String> mockResponse = mock(HttpResponse.class);
-        when(mockResponse.statusCode()).thenReturn(statusCode);
-        when(mockResponse.body()).thenReturn(responseBody);
-        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(mockResponse);
-        mockedHttpClientStatic.when(HttpClient::newHttpClient).thenReturn(mockHttpClient);
+        try {
+            HttpResponse<String> mockResponse = mock(HttpResponse.class);
+            when(mockResponse.statusCode()).thenReturn(statusCode);
+            when(mockResponse.body()).thenReturn(responseBody);
+            when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                    .thenReturn(mockResponse);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to mock HTTP client", e);
+        }
     }
 
     private String createOAuthSecretJson()

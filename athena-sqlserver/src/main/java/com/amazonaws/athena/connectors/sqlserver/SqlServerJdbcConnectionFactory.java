@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -64,34 +64,24 @@ public class SqlServerJdbcConnectionFactory extends GenericJdbcConnectionFactory
             if (null != credentialsProvider) {
                 Matcher secretMatcher = SECRET_NAME_PATTERN.matcher(databaseConnectionConfig.getJdbcConnectionString());
                 final String secretReplacement;
-                if (databaseConnectionConfig.getJdbcConnectionString().contains("authentication=ActiveDirectoryServicePrincipal")) {
-                    // Set AADSecurePrincipal credentials for OAuth
-                    secretReplacement = String.format(
-                        "%s;%s",
-                        "AADSecurePrincipalId=" + credentialsProvider.getCredential().getUser(),
-                        "AADSecurePrincipalSecret=" + credentialsProvider.getCredential().getPassword()
-                    );
+
+                Map<String, String> credentialMap = credentialsProvider.getCredentialMap();
+                String accessToken = credentialMap.get("accessToken");
+
+                if (accessToken != null) {
+                    // OAuth token
+                    this.jdbcProperties.setProperty("accessToken", accessToken);
+                    secretReplacement = "";
                 }
                 else {
-                    SqlServerCredentialsProvider synapseProvider = (SqlServerCredentialsProvider) credentialsProvider;
-                    String accessToken = synapseProvider.getOAuthAccessToken();
-
-                    if (accessToken != null) {
-                        // OAuth token
-                        this.jdbcProperties.setProperty("accessToken", accessToken);
-                        secretReplacement = "";
-                    }
-                    else {
-                        // Fallback to username/password and change username as user
-                        DefaultCredentials credentials = synapseProvider.getCredential();
-                        secretReplacement = String.format(
-                                "%s;%s",
-                                "user=" + credentials.getUser(),
-                                "password=" + credentials.getPassword()
-                        );
-                    }
+                    // Fallback to username/password and change username as user
+                    DefaultCredentials credentials = credentialsProvider.getCredential();
+                    secretReplacement = String.format(
+                            "%s;%s",
+                            "user=" + credentials.getUser(),
+                            "password=" + credentials.getPassword()
+                    );
                 }
-
                 derivedJdbcString = secretMatcher.replaceAll(Matcher.quoteReplacement(secretReplacement));
             }
             else {

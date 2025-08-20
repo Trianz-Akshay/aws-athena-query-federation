@@ -206,5 +206,11 @@ public class BaseQueryBuilderTest extends TestBase
         {
             return Collections.emptyList();
         }
+
+        @Override
+        protected List<String> buildPartitionWhereClauses(Split split)
+        {
+            return Collections.emptyList();
+        }
     }
 } 

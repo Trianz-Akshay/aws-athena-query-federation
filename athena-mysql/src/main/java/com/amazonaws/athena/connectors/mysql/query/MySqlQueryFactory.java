@@ -19,7 +19,7 @@
  */
 package com.amazonaws.athena.connectors.mysql.query;
 
-import com.amazonaws.athena.connectors.jdbc.query.CommonQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.query.BaseQueryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * Enhanced with sophisticated string template patterns and logging similar to getPartitionWhereClauses.
  * Handles MySQL-specific ORDER BY clause with null ordering support.
  */
-public class MySqlQueryFactory extends CommonQueryFactory
+public class MySqlQueryFactory extends BaseQueryFactory
 {
     private static final Logger logger = LoggerFactory.getLogger(MySqlQueryFactory.class);
     private static final String TEMPLATE_FILE = "JdbcQuery.stg";

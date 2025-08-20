@@ -40,7 +40,7 @@ public class BaseQueryFactoryTest
     @Before
     public void setup()
     {
-        queryFactory = new TestBaseQueryFactory("test_template.stg");
+        queryFactory = new TestBaseQueryFactory("test_template.stg", "test_quote");
     }
 
     @Test
@@ -69,9 +69,9 @@ public class BaseQueryFactoryTest
     // Test implementation of BaseQueryFactory for testing
     private static class TestBaseQueryFactory extends BaseQueryFactory
     {
-        public TestBaseQueryFactory(String templateFile)
+        public TestBaseQueryFactory(String templateFile, String quoteChar)
         {
-            super(templateFile);
+            super(templateFile, quoteChar);
         }
 
         @Override
@@ -84,11 +84,7 @@ public class BaseQueryFactoryTest
             return new TestBaseQueryBuilder(mockTemplate, getQuoteChar());
         }
 
-        @Override
-        protected String getQuoteChar()
-        {
-            return "test_quote";
-        }
+
 
         @Override
         protected STGroupFile createGroupFile()
@@ -112,6 +108,12 @@ public class BaseQueryFactoryTest
         protected java.util.List<String> buildConjuncts(java.util.List<org.apache.arrow.vector.types.pojo.Field> fields, 
                                                        com.amazonaws.athena.connector.lambda.domain.predicate.Constraints constraints, 
                                                        java.util.List<Object> parameterValues)
+        {
+            return java.util.Collections.emptyList();
+        }
+
+        @Override
+        protected java.util.List<String> buildPartitionWhereClauses(com.amazonaws.athena.connector.lambda.domain.Split split)
         {
             return java.util.Collections.emptyList();
         }

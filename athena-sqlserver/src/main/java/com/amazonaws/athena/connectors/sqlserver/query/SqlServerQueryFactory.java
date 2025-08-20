@@ -19,7 +19,7 @@
  */
 package com.amazonaws.athena.connectors.sqlserver.query;
 
-import com.amazonaws.athena.connectors.jdbc.query.CommonQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.query.BaseQueryFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * Enhanced with sophisticated string template patterns and logging similar to getPartitionWhereClauses.
  * SQL Server doesn't support LIMIT clause, so we return empty string.
  */
-public class SqlServerQueryFactory extends CommonQueryFactory
+public class SqlServerQueryFactory extends BaseQueryFactory
 {
     private static final Logger logger = LoggerFactory.getLogger(SqlServerQueryFactory.class);
     private static final String TEMPLATE_FILE = "JdbcQuery.stg";

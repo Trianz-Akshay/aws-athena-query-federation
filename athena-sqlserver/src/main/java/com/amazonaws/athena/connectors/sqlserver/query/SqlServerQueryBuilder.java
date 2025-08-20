@@ -21,7 +21,7 @@ package com.amazonaws.athena.connectors.sqlserver.query;
 
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
-import com.amazonaws.athena.connectors.jdbc.query.EnhancedBaseQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.query.BaseQueryBuilder;
 import com.amazonaws.athena.connectors.sqlserver.SqlServerFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.slf4j.Logger;
@@ -38,7 +38,7 @@ import java.util.List;
  * 
  * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
-public class SqlServerQueryBuilder extends EnhancedBaseQueryBuilder
+public class SqlServerQueryBuilder extends BaseQueryBuilder
 {
     private static final Logger logger = LoggerFactory.getLogger(SqlServerQueryBuilder.class);
     private final SqlServerPredicateBuilder predicateBuilder;

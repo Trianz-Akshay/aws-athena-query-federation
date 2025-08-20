@@ -55,6 +55,7 @@ public abstract class BaseQueryBuilder
     protected String limitClause;
     protected List<Object> parameterValues;
     protected final String quoteChar;
+    protected Split currentSplit;
 
     protected BaseQueryBuilder(ST template, String quoteChar)
     {
@@ -102,12 +103,11 @@ public abstract class BaseQueryBuilder
     /**
      * Enhanced split handling with logging and validation.
      * Similar to the pattern used in getPartitionWhereClauses for consistent SQL generation.
-     * Default implementation does nothing - subclasses can override for partition support.
      */
     public BaseQueryBuilder withSplit(Split split)
     {
-        logger.debug("withSplit - Setting split with properties: {}", split.getProperties().keySet());
-        // Default implementation does nothing - subclasses can override for partition support
+        logger.debug("withSplit - Setting split with {} properties", split.getProperties().size());
+        this.currentSplit = split;
         return this;
     }
 
@@ -131,6 +131,16 @@ public abstract class BaseQueryBuilder
     {
         logger.debug("withConjuncts - Building conjuncts for schema with {} fields", schema.getFields().size());
         this.conjuncts = buildConjuncts(schema.getFields(), constraints, this.parameterValues);
+
+        // Add database-specific partition clauses if split is available
+        if (currentSplit != null) {
+            List<String> partitionClauses = buildPartitionWhereClauses(currentSplit);
+            if (!partitionClauses.isEmpty()) {
+                logger.debug("withConjuncts - Adding {} partition clauses", partitionClauses.size());
+                this.conjuncts.addAll(partitionClauses);
+            }
+        }
+
         logger.debug("withConjuncts - Generated {} conjuncts with {} parameter values", 
             this.conjuncts.size(), this.parameterValues.size());
         return this;
@@ -233,6 +243,16 @@ public abstract class BaseQueryBuilder
     protected abstract List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues);
 
     /**
+     * Build database-specific partition WHERE clauses.
+     * Must be implemented by subclasses to provide database-specific partition handling.
+     * Similar to the pattern used in getPartitionWhereClauses for consistent SQL generation.
+     *
+     * @param split The split containing partition information
+     * @return List of partition WHERE clauses
+     */
+    protected abstract List<String> buildPartitionWhereClauses(Split split);
+
+    /**
      * Build the limit clause. Can be overridden by subclasses for different syntax.
      * Enhanced with logging similar to getPartitionWhereClauses pattern.
      */
@@ -252,6 +272,17 @@ public abstract class BaseQueryBuilder
         String quoted = quoteChar + identifier + quoteChar;
         logger.debug("quote - Quoted result: {}", quoted);
         return quoted;
+    }
+
+    /**
+     * Get the current split being processed.
+     * Useful for subclasses that need access to split information.
+     *
+     * @return The current split or null if not set
+     */
+    protected Split getCurrentSplit()
+    {
+        return currentSplit;
     }
 
     /**

@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
  * Base factory for creating query builders with StringTemplate support.
  * Enhanced with sophisticated string template patterns and logging similar to getPartitionWhereClauses.
  * Provides common functionality for loading and managing StringTemplate files.
+ * Includes quote character management functionality from CommonQueryFactory.
  */
 public abstract class BaseQueryFactory
 {
@@ -46,12 +47,14 @@ public abstract class BaseQueryFactory
     private final String templateFile;
     private final String localTemplateFile;
     private volatile boolean useLocalFallback = false;
+    private final String quoteChar;
 
-    protected BaseQueryFactory(String templateFile)
+    protected BaseQueryFactory(String templateFile, String quoteChar)
     {
         this.templateFile = templateFile;
         this.localTemplateFile = "/tmp/" + templateFile;
-        logger.debug("BaseQueryFactory initialized with templateFile: {}", templateFile);
+        this.quoteChar = quoteChar;
+        logger.debug("BaseQueryFactory initialized with templateFile: {} and quoteChar: {}", templateFile, quoteChar);
     }
 
     /**
@@ -148,8 +151,24 @@ public abstract class BaseQueryFactory
     public abstract BaseQueryBuilder createQueryBuilder();
 
     /**
-     * Get the quote character for this database type.
-     * Enhanced with logging similar to getPartitionWhereClauses pattern.
+     * Enhanced quote character retrieval with logging.
+     * Common implementation for database-specific query factories.
+     * Similar to the pattern used in getPartitionWhereClauses for consistent SQL generation.
      */
-    protected abstract String getQuoteChar();
+    protected String getQuoteChar()
+    {
+        logger.debug("getQuoteChar - Returning quote character: {}", quoteChar);
+        return quoteChar;
+    }
+
+    /**
+     * Get the quote character for this database type.
+     * Useful for subclasses that need access to the quote character.
+     *
+     * @return The quote character
+     */
+    protected String getDatabaseQuoteChar()
+    {
+        return quoteChar;
+    }
 } 

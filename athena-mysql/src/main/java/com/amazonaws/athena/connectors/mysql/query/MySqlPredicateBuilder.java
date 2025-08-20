@@ -24,7 +24,7 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.Range;
 import com.amazonaws.athena.connector.lambda.domain.predicate.SortedRangeSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.manager.FederationExpressionParser;
-import com.amazonaws.athena.connectors.jdbc.query.EnhancedBasePredicateBuilder;
+import com.amazonaws.athena.connectors.jdbc.query.BasePredicateBuilder;
 import com.amazonaws.athena.connectors.mysql.MySqlFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ import java.util.concurrent.TimeUnit;
  * 
  * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
-public class MySqlPredicateBuilder extends EnhancedBasePredicateBuilder
+public class MySqlPredicateBuilder extends BasePredicateBuilder
 {
     private static final String TEMPLATE_FILE = "JdbcQuery.stg";
     private static final Logger logger = LoggerFactory.getLogger(MySqlPredicateBuilder.class);
@@ -104,7 +104,7 @@ public class MySqlPredicateBuilder extends EnhancedBasePredicateBuilder
 
     /**
      * Convert a value for MySQL database type.
-     * Implements the abstract method from EnhancedBasePredicateBuilder.
+     * Implements the abstract method from BasePredicateBuilder.
      *
      * @param value The value to convert
      * @param fieldType The field type for proper value conversion
@@ -157,7 +157,7 @@ public class MySqlPredicateBuilder extends EnhancedBasePredicateBuilder
 
     /**
      * Create a MySQL-specific FederationExpressionParser for handling complex expressions.
-     * Implements the abstract method from EnhancedBasePredicateBuilder.
+     * Implements the abstract method from BasePredicateBuilder.
      *
      * @return A FederationExpressionParser instance for MySQL
      */

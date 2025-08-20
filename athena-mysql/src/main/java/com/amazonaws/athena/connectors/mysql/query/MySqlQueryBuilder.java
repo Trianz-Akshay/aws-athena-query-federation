@@ -23,7 +23,7 @@ import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
-import com.amazonaws.athena.connectors.jdbc.query.EnhancedBaseQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.query.BaseQueryBuilder;
 import com.amazonaws.athena.connectors.mysql.MySqlFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  * <p>
  * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
-public class MySqlQueryBuilder extends EnhancedBaseQueryBuilder
+public class MySqlQueryBuilder extends BaseQueryBuilder
 {
     private static final Logger logger = LoggerFactory.getLogger(MySqlQueryBuilder.class);
     private final MySqlPredicateBuilder predicateBuilder;

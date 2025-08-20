@@ -20,7 +20,7 @@
 package com.amazonaws.athena.connectors.sqlserver.query;
 
 import com.amazonaws.athena.connectors.jdbc.manager.FederationExpressionParser;
-import com.amazonaws.athena.connectors.jdbc.query.EnhancedBasePredicateBuilder;
+import com.amazonaws.athena.connectors.jdbc.query.BasePredicateBuilder;
 import com.amazonaws.athena.connectors.sqlserver.SqlServerFederationExpressionParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
  * 
  * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
-public class SqlServerPredicateBuilder extends EnhancedBasePredicateBuilder
+public class SqlServerPredicateBuilder extends BasePredicateBuilder
 {
     private static final String TEMPLATE_FILE = "JdbcQuery.stg";
     private static final Logger logger = LoggerFactory.getLogger(SqlServerPredicateBuilder.class);
@@ -52,7 +52,7 @@ public class SqlServerPredicateBuilder extends EnhancedBasePredicateBuilder
 
     /**
      * Convert a value for SQL Server database type.
-     * Implements the abstract method from EnhancedBasePredicateBuilder.
+     * Implements the abstract method from BasePredicateBuilder.
      *
      * @param value The value to convert
      * @param fieldType The field type for proper value conversion
@@ -105,7 +105,7 @@ public class SqlServerPredicateBuilder extends EnhancedBasePredicateBuilder
 
     /**
      * Create a SQL Server-specific FederationExpressionParser for handling complex expressions.
-     * Implements the abstract method from EnhancedBasePredicateBuilder.
+     * Implements the abstract method from BasePredicateBuilder.
      *
      * @return A FederationExpressionParser instance for SQL Server
      */

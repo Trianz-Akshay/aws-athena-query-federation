@@ -158,7 +158,7 @@ public class CredentialsProviderFactoryTest
     }
 
     @Test
-    public void testCreateCredentialProvider_whenInvalidOAuthClass_throwsException() throws JsonProcessingException
+    public void testCreateCredentialProvider_whenInvalidOAuthClass_fallsBackToDefault() throws JsonProcessingException
     {
         // Create a class that doesn't properly implement the required methods
         class InvalidOAuthProvider extends OAuthCredentialsProvider
@@ -176,26 +176,25 @@ public class CredentialsProviderFactoryTest
             }
         }
 
-        String oauthSecret = new ObjectMapper().writeValueAsString(Map.of(
+        // Create a secret with both OAuth and username/password credentials
+        String mixedSecret = new ObjectMapper().writeValueAsString(Map.of(
                 CLIENT_ID, TEST_CLIENT_ID,
-                CLIENT_SECRET, TEST_CLIENT_SECRET
+                CLIENT_SECRET, TEST_CLIENT_SECRET,
+                USERNAME, TEST_USERNAME,
+                PASSWORD, TEST_PASSWORD
         ));
         when(secretsManager.getSecretValue(any(GetSecretValueRequest.class))).thenReturn(
-                GetSecretValueResponse.builder().secretString(oauthSecret).build()
+                GetSecretValueResponse.builder().secretString(mixedSecret).build()
         );
 
-        try {
-            CredentialsProviderFactory.createCredentialProvider(
-                    SECRET_NAME,
-                    cachableSecretsManager,
-                    new InvalidOAuthProvider()
-            );
-            fail("Expected AthenaConnectorException");
-        }
-        catch (AthenaConnectorException e) {
-            assertEquals(FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION.toString(),
-                    e.getErrorDetails().errorCode());
-            assertTrue(e.getMessage().contains("Failed to create OAuth provider"));
-        }
+        // The new implementation should gracefully handle OAuth provider failure and fall back to default credentials
+        CredentialsProvider provider = CredentialsProviderFactory.createCredentialProvider(
+                SECRET_NAME,
+                cachableSecretsManager,
+                new InvalidOAuthProvider()
+        );
+        
+        // Should fall back to DefaultCredentialsProvider when OAuth provider fails
+        assertTrue(provider instanceof DefaultCredentialsProvider);
     }
 }

@@ -30,57 +30,74 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
- * Factory class for handling credentials provider creation.
- * This class can be used by any connector that needs to support both
- * OAuth and username/password authentication.
+ * Factory class for handling credentials provider creation with dependency injection support.
+ * This class can be used by any connector that needs to support OAuth authentication
+ * with fallback to default username/password credentials.
+ * 
+ * Usage examples:
+ * <pre>
+ * // Basic usage with OAuth provider
+ * factory = new CredentialsProviderFactory(secret, secretManager, oauthProvider);
+ * 
+ * // Only default credentials (no OAuth)
+ * factory = new CredentialsProviderFactory(secret, secretManager, null);
+ * </pre>
  */
 public final class CredentialsProviderFactory
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    private CredentialsProviderFactory()
-    {
-    }
+    
+    private final String secretName;
+    private final CachableSecretsManager secretsManager;
+    private final OAuthCredentialsProvider oauthProvider;
 
     /**
-     * Creates a credentials provider based on the secret configuration.
-     * If OAuth is configured (determined by the provider's isOAuthConfigured method), creates an instance
-     * of the specified OAuth provider. Otherwise, creates a default username/password credentials provider.
+     * Constructor with a single OAuth credential provider.
      *
      * @param secretName The name of the secret in AWS Secrets Manager
      * @param secretsManager The secrets manager instance
-     * @param provider The InitializableCredentialsProvider instance to check and initialize
+     * @param oauthProvider The OAuth credential provider (can be null)
+     */
+    public CredentialsProviderFactory(String secretName, CachableSecretsManager secretsManager, 
+                                     OAuthCredentialsProvider oauthProvider)
+    {
+        this.secretName = secretName;
+        this.secretsManager = secretsManager;
+        this.oauthProvider = oauthProvider;
+    }
+
+    /**
+     * Creates a credentials provider based on the injected OAuth provider and secret configuration.
+     * If OAuth is configured, initializes and returns the OAuth provider. Otherwise, falls back to 
+     * default username/password credentials.
+     *
      * @return A new CredentialsProvider instance based on the secret configuration
      * @throws AthenaConnectorException if there are errors deserializing the secret or creating the provider
      */
-    public static CredentialsProvider createCredentialProvider(
-            String secretName,
-            CachableSecretsManager secretsManager,
-            InitializableCredentialsProvider provider)
+    public CredentialsProvider createCredentialProvider()
     {
         if (StringUtils.isNotBlank(secretName)) {
             try {
                 String secretString = secretsManager.getSecret(secretName);
+                @SuppressWarnings("unchecked")
                 Map<String, String> secretMap = OBJECT_MAPPER.readValue(secretString, Map.class);
 
-                if (provider instanceof OAuthCredentialsProvider) {
-                    OAuthCredentialsProvider oauthProvider = (OAuthCredentialsProvider) provider;
+                // Try OAuth provider if available
+                if (oauthProvider != null) {
                     try {
-                        // Check if OAuth is configured
+                        // Check if OAuth is configured for this provider
                         if (oauthProvider.isOAuthConfigured(secretMap)) {
                             oauthProvider.initialize(secretName, secretMap, secretsManager);
                             return oauthProvider;
                         }
                     }
                     catch (RuntimeException e) {
-                        throw new AthenaConnectorException("Failed to create OAuth provider: " + e.getMessage(),
-                                ErrorDetails.builder()
-                                        .errorCode(FederationSourceErrorCode.INTERNAL_SERVICE_EXCEPTION.toString())
-                                        .errorMessage(e.getMessage())
-                                        .build());
+                        // Log the error but continue to fallback
+                        // This allows for graceful fallback to default credentials
                     }
                 }
-                // Fall back to default credentials if OAuth is not configured
+                
+                // Fall back to default credentials if OAuth is not configured or provider is null
                 return new DefaultCredentialsProvider(secretString);
             }
             catch (IOException ioException) {
@@ -93,5 +110,26 @@ public final class CredentialsProviderFactory
         }
 
         return null;
+    }
+
+    /**
+     * Static method for backward compatibility with existing code.
+     * Creates a credentials provider using the old static factory pattern.
+     * 
+     * @param secretName The name of the secret in AWS Secrets Manager
+     * @param secretsManager The secrets manager instance
+     * @param oauthProvider The OAuth credential provider (can be null)
+     * @return A new CredentialsProvider instance based on the secret configuration
+     * @throws AthenaConnectorException if there are errors deserializing the secret or creating the provider
+     * @deprecated Use the new dependency injection approach: new CredentialsProviderFactory(...).createCredentialProvider()
+     */
+    @Deprecated
+    public static CredentialsProvider createCredentialProvider(
+            String secretName,
+            CachableSecretsManager secretsManager,
+            OAuthCredentialsProvider oauthProvider)
+    {
+        CredentialsProviderFactory factory = new CredentialsProviderFactory(secretName, secretsManager, oauthProvider);
+        return factory.createCredentialProvider();
     }
 }

@@ -21,7 +21,7 @@ package com.amazonaws.athena.connectors.synapse;
 
 import com.amazonaws.athena.connector.credentials.CredentialsConstants;
 import com.amazonaws.athena.connector.credentials.CredentialsProvider;
-import com.amazonaws.athena.connector.credentials.DefaultCredentials;
+import com.amazonaws.athena.connector.credentials.OAuthAccessTokenCredentials;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionInfo;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
@@ -72,7 +72,6 @@ public class SynapseJdbcConnectionFactory extends GenericJdbcConnectionFactory
 
                 if (connectionString.contains("authentication=ActiveDirectoryServicePrincipal")) {
                     // AAD Service Principal credentials
-                    DefaultCredentials credentials = credentialsProvider.getCredential();
                     secretReplacement = String.format(
                         "%s;%s",
                         "AADSecurePrincipalId=" + credentialsProvider.getCredentialMap().get(CredentialsConstants.USER),
@@ -80,27 +79,19 @@ public class SynapseJdbcConnectionFactory extends GenericJdbcConnectionFactory
                     );
                 }
                 else {
-                    // replace aws secret value with credentials and change username as user
-                    secretReplacement = String.format(
-                        "%s;%s",
-                        "user=" + credentialsProvider.getCredentialMap().get(CredentialsConstants.USER),
-                        "password=" + credentialsProvider.getCredentialMap().get(CredentialsConstants.PASSWORD)
-                    );
-                    SynapseCredentialsProvider synapseProvider = (SynapseCredentialsProvider) credentialsProvider;
-                    String accessToken = synapseProvider.getOAuthAccessToken();
-
-                    if (accessToken != null) {
+                    // Check if this is OAuth credentials
+                    if (credentialsProvider.getCredential() instanceof OAuthAccessTokenCredentials) {
                         // OAuth token
-                        connectionProps.setProperty("accessToken", accessToken);
+                        OAuthAccessTokenCredentials oauthCreds = (OAuthAccessTokenCredentials) credentialsProvider.getCredential();
+                        connectionProps.setProperty(CredentialsConstants.ACCESS_TOKEN_PROPERTY, oauthCreds.getAccessToken());
                         secretReplacement = "";
                     }
                     else {
-                        // Fallback to username/password and change username as user
-                        DefaultCredentials credentials = synapseProvider.getCredential();
+                        // replace aws secret value with credentials and change username as user
                         secretReplacement = String.format(
                                 "%s;%s",
-                                "user=" + credentials.getUser(),
-                                "password=" + credentials.getPassword()
+                                "user=" + credentialsProvider.getCredentialMap().get(CredentialsConstants.USER),
+                                "password=" + credentialsProvider.getCredentialMap().get(CredentialsConstants.PASSWORD)
                         );
                     }
                 }

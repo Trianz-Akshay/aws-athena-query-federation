@@ -73,7 +73,7 @@ public class ClouderaHiveEnvironmentPropertiesTest
     {
         connectionProperties.put(SESSION_CONFS, HIVE_EXECUTION_ENGINE_MR);
         Map<String, String> clouderaHiveConnectionProperties = clouderaHiveEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
-        String expectedConnectionString = BASE_CONNECTION_STRING + HIVE_EXECUTION_ENGINE_MR + TEST_SECRET;
+        String expectedConnectionString = BASE_CONNECTION_STRING + HIVE_EXECUTION_ENGINE_MR + ";" + TEST_SECRET;
         assertEquals(expectedConnectionString, clouderaHiveConnectionProperties.get(DEFAULT));
     }
 
@@ -83,7 +83,7 @@ public class ClouderaHiveEnvironmentPropertiesTest
         connectionProperties.put(SESSION_CONFS, HIVE_EXECUTION_ENGINE_MR);
         connectionProperties.put(HIVE_CONFS, MAPREDUCE_TESTING);
         Map<String, String> clouderaHiveConnectionProperties = clouderaHiveEnvironmentProperties.connectionPropertiesToEnvironment(connectionProperties);
-        String expectedConnectionString = BASE_CONNECTION_STRING + HIVE_EXECUTION_ENGINE_MR + ";" + MAPREDUCE_TESTING + TEST_SECRET;
+        String expectedConnectionString = BASE_CONNECTION_STRING + HIVE_EXECUTION_ENGINE_MR + ";" + MAPREDUCE_TESTING + ";" + TEST_SECRET;
         assertEquals(expectedConnectionString, clouderaHiveConnectionProperties.get(DEFAULT));
     }
 

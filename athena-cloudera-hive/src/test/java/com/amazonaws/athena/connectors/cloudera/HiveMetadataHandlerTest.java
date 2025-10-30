@@ -291,8 +291,9 @@ public class HiveMetadataHandlerTest extends TestBase {
                 .map(Field::getName)
                 .collect(Collectors.toSet());
 
+        String query = "SELECT * FROM testSchema.testTable WHERE testCol1 = 1";
         Map<String, String> queryPassthroughArgs = new ImmutableMap.Builder<String, String>()
-                .put(QUERY, "SELECT * FROM testSchema.testTable WHERE testCol1 = 1")
+                .put(QUERY, query)
                 .put(SCHEMA_FUNCTION_NAME, "system.query")
                 .put(ENABLE_QUERY_PASSTHROUGH, "true")
                 .put("name", "query")
@@ -318,6 +319,7 @@ public class HiveMetadataHandlerTest extends TestBase {
 
         assertEquals(1, getSplitsResponse.getSplits().size());
         assertEquals(TEST_CATALOG_NAME, getSplitsResponse.getCatalogName());
+        assertEquals(query, getSplitsResponse.getSplits().stream().findAny().get().getProperties().get(QUERY));
     }
 
     @Test

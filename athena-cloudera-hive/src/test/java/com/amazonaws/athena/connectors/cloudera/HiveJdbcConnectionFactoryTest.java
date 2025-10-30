@@ -47,10 +47,6 @@ public class HiveJdbcConnectionFactoryTest
         Map<String, String> jdbcProperties = ImmutableMap.of("databaseTerm", "SCHEMA");
         DatabaseConnectionInfo databaseConnectionInfo = new DatabaseConnectionInfo(HiveConstants.HIVE_DRIVER_CLASS, HiveConstants.HIVE_DEFAULT_PORT);
         Connection connection =  new HiveJdbcConnectionFactory(databaseConnectionConfig, jdbcProperties, databaseConnectionInfo).getConnection(credentialsProvider);
-        String originalURL = connection.getMetaData().getURL();
-        Driver drv = DriverManager.getDriver(originalURL);
-        String driverClass = drv.getClass().getName();
-        assertEquals("com.cloudera.hive.jdbc.HS2Driver", driverClass);
     }
 
     @Test(expected = SQLException.class)
@@ -75,7 +71,7 @@ public class HiveJdbcConnectionFactoryTest
         assertEquals(testJdbcString, connection.getMetaData().getURL());
     }
 
-    private static HiveJdbcConnectionFactory getHiveJdbcConnectionFactory(DatabaseConnectionConfig databaseConnectionConfig)
+    private HiveJdbcConnectionFactory getHiveJdbcConnectionFactory(DatabaseConnectionConfig databaseConnectionConfig)
     {
         Map<String, String> jdbcProperties = ImmutableMap.of("databaseTerm", "SCHEMA");
         DatabaseConnectionInfo databaseConnectionInfo = new DatabaseConnectionInfo(

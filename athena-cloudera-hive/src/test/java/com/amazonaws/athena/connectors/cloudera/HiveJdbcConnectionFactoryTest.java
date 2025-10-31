@@ -34,7 +34,7 @@ import java.util.Map;
 public class HiveJdbcConnectionFactoryTest 
 {
     @Test(expected = SQLException.class)
-    public void testGetConnection_withCredentials() throws Exception
+    public void getConnection_WithCredentials_ThrowsSQLException() throws Exception
     {
         DefaultCredentials expectedCredential = new DefaultCredentials("hive", "hive");
         CredentialsProvider credentialsProvider = new StaticCredentialsProvider(expectedCredential);
@@ -46,7 +46,7 @@ public class HiveJdbcConnectionFactoryTest
     }
 
     @Test(expected = SQLException.class)
-    public void testGetConnection_withNullCredentials() throws Exception
+    public void getConnection_WithNullCredentials_ThrowsSQLException() throws Exception
     {
         // Setup the connection config with a test JDBC string
         String testJdbcString = "jdbc:hive2://localhost:10000/default";

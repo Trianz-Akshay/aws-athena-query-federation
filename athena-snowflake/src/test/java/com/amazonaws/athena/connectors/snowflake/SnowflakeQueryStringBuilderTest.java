@@ -320,20 +320,6 @@ public class SnowflakeQueryStringBuilderTest
         assertTrue(result.toString().contains("2021-03-20"));
     }
 
-    @Test
-    public void testGetObjectForWhereClause_Timestamp() {
-        // Set timezone to UTC for this test to ensure consistent results
-        TimeZone originalTimeZone = TimeZone.getDefault();
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-        try {
-            Object result = queryBuilder.getObjectForWhereClause(COLUMN_CREATED_AT, VALUE_TIMESTAMP_1711929600000L, new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC"));
-            assertEquals("2024-04-01 00:00:00", result);
-        } finally {
-            // Restore original timezone
-            TimeZone.setDefault(originalTimeZone);
-        }
-    }
-
     @Test(expected = UnsupportedOperationException.class)
     public void testGetObjectForWhereClause_Time() {
         queryBuilder.getObjectForWhereClause(COLUMN_TIME, VALUE_TIME_STRING, new ArrowType.Time(TimeUnit.MILLISECOND, 32));

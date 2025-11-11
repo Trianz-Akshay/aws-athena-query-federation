@@ -58,7 +58,17 @@ public class SelectQueryBuilderTest
     @After
     public void tearDown()
     {
-        allocator.close();
+        if (allocator != null) {
+            allocator.close();
+        }
+    }
+
+    /**
+     * Normalizes a query string by removing all whitespace characters for comparison.
+     */
+    private String normalizeQuery(String query)
+    {
+        return query.replaceAll("\\s+", " ").trim();
     }
 
     @Test
@@ -95,10 +105,10 @@ public class SelectQueryBuilderTest
                 .withTableName("myTable")
                 .withProjection(schema)
                 .withConjucts(new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null))
-                .build().replace("\n", "");
+                .build();
 
         logger.info("build: actual[{}]", actual);
-        assertEquals(expected, actual);
+        assertEquals(normalizeQuery(expected), normalizeQuery(actual));
 
         logger.info("build: exit");
     }
@@ -126,10 +136,10 @@ public class SelectQueryBuilderTest
                 .withTableName("myTable")
                 .withProjection(schema)
                 .withConjucts(new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null))
-                .build().replace("\n", "");
+                .build();
 
         logger.info("build: actual[{}]", actual);
-        assertEquals(expected, actual);
+        assertEquals(normalizeQuery(expected), normalizeQuery(actual));
 
         logger.info("build: exit");
     }
@@ -161,10 +171,10 @@ public class SelectQueryBuilderTest
                 .withTableName("myTable")
                 .withProjection(schema)
                 .withConjucts(new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null))
-                .build().replace("\n", "");
+                .build();
 
         logger.info("build: actual[{}]", actual);
-        assertEquals(expected, actual);
+        assertEquals(normalizeQuery(expected), normalizeQuery(actual));
 
         logger.info("build: buildWithView");
     }

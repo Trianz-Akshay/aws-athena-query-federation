@@ -33,6 +33,7 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.EquatableValueSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connector.lambda.domain.spill.S3SpillLocation;
 import com.amazonaws.athena.connector.lambda.domain.spill.SpillLocation;
+import com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsRequest;
 import com.amazonaws.athena.connector.lambda.records.ReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.records.RecordResponse;
@@ -40,6 +41,7 @@ import com.amazonaws.athena.connector.lambda.records.RemoteReadRecordsResponse;
 import com.amazonaws.athena.connector.lambda.security.EncryptionKeyFactory;
 import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
 import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
+import com.amazonaws.athena.connectors.timestream.qpt.TimestreamQueryPassthrough;
 import com.google.common.io.ByteStreams;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types;
@@ -66,8 +68,11 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.timestreamquery.TimestreamQueryClient;
+import software.amazon.awssdk.services.timestreamquery.model.Datum;
 import software.amazon.awssdk.services.timestreamquery.model.QueryRequest;
 import software.amazon.awssdk.services.timestreamquery.model.QueryResponse;
+import software.amazon.awssdk.services.timestreamquery.model.Row;
+import software.amazon.awssdk.services.timestreamquery.model.TimeSeriesDataPoint;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -110,6 +115,26 @@ public class TimestreamRecordHandlerTest
     private static final String DEFAULT_SCHEMA = "my_schema";
     private static final String TEST_TABLE = "my_table";
     private static final String TEST_VIEW = "my_view";
+    private static final String QUERY_ID_PREFIX = "queryId-";
+    private static final String SYSTEM_QUERY_FUNCTION = "SYSTEM.QUERY";
+    private static final String PASSTHROUGH_QUERY = "SELECT * FROM my_table WHERE col1 = 'value'";
+    private static final String EXPECTED_QUERY_PAGINATION = "SELECT measure_name, measure_value::double, az, time, hostname, region FROM \"my_schema\".\"my_table\"";
+    private static final String US_EAST_1A = "us-east-1a";
+    private static final String REGION_1 = "region1";
+    private static final String MEASURE_PREFIX = "measure_";
+    private static final String HOST_PREFIX = "host";
+    private static final String PAGINATION_TOKEN_PREFIX = "token";
+    private static final String MEASURE_1 = "measure1";
+    private static final String FLOAT_VALUE_1_5 = "1.5";
+    private static final String HOST_1 = "host1";
+    private static final String TRUE_VALUE = "true";
+    private static final String BIGINT_VALUE = "123456789";
+    private static final String COLUMN_NAME_1 = "col1";
+    private static final String COLUMN_NAME_2 = "col2";
+    private static final String COLUMN_NAME_3 = "col3";
+    private static final String COLUMN_NAME_4 = "col4";
+    private static final String TIMESTAMP_2024_01_01 = "2024-01-01 00:00:00.000";
+    private static final String UNSUPPORTED_FIELD_TYPE = "Unsupported field type";
 
     @Rule
     public TestName testName = new TestName();
@@ -187,8 +212,18 @@ public class TimestreamRecordHandlerTest
     @After
     public void after()
     {
-        allocator.close();
+        if (allocator != null) {
+            allocator.close();
+        }
         logger.info("{}: exit ", testName.getMethodName());
+    }
+
+    /**
+     * Normalizes a query string by removing all whitespace characters for comparison.
+     */
+    private String normalizeQuery(String query)
+    {
+        return query.replaceAll("\\s+", " ").trim();
     }
 
     @Test
@@ -202,7 +237,7 @@ public class TimestreamRecordHandlerTest
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
                             QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            assertEquals(expectedQuery, request.queryString().replace("\n", ""));
+                            assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
                             return mockResult;
                         }
                 );
@@ -223,7 +258,7 @@ public class TimestreamRecordHandlerTest
 
         ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
                 DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_TABLE),
                 schemaForRead,
                 splitBuilder.build(),
@@ -257,7 +292,7 @@ public class TimestreamRecordHandlerTest
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
                             QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            assertEquals(expectedQuery, request.queryString().replace("\n", ""));
+                            assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
                             return mockResult;
                         }
                 );
@@ -278,7 +313,7 @@ public class TimestreamRecordHandlerTest
 
         ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
                 DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_TABLE),
                 schemaForRead,
                 splitBuilder.build(),
@@ -331,7 +366,7 @@ public class TimestreamRecordHandlerTest
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
                             QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            assertEquals(expectedQuery, request.queryString().replace("\n", ""));
+                            assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
                             return mockResult;
                         }
                 );
@@ -352,7 +387,7 @@ public class TimestreamRecordHandlerTest
 
         ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
                 "default",
-                "queryId-" + System.currentTimeMillis(),
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_VIEW),
                 schemaForReadView,
                 split,
@@ -398,7 +433,7 @@ public class TimestreamRecordHandlerTest
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
                             QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            assertEquals("actual: " + request.queryString(), expectedQuery, request.queryString().replace("\n", ""));
+                            assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
                             return mockResult;
                         }
                 );
@@ -420,7 +455,7 @@ public class TimestreamRecordHandlerTest
 
         ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
                 "default",
-                "queryId-" + System.currentTimeMillis(),
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_TABLE),
                 schemaForReadView,
                 split,
@@ -453,7 +488,7 @@ public class TimestreamRecordHandlerTest
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
                             QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            assertEquals(expectedQuery, request.queryString().replace("\n", ""));
+                            assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
                             return mockResult;
                         }
                 );
@@ -473,7 +508,7 @@ public class TimestreamRecordHandlerTest
 
         ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
                 DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_TABLE),
                 schemaForRead,
                 splitBuilder.build(),
@@ -500,5 +535,559 @@ public class TimestreamRecordHandlerTest
         }
 
         logger.info("doReadRecordsNoSpill: {}", BlockUtils.rowToString(response.getRecords(), 0));
+    }
+
+    @Test
+    public void doReadRecords_WithQueryPassthrough_ShouldReturnRecords()
+            throws Exception
+    {
+        Map<String, String> qptArgs = new HashMap<>();
+        qptArgs.put(QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, SYSTEM_QUERY_FUNCTION);
+        qptArgs.put(TimestreamQueryPassthrough.QUERY, PASSTHROUGH_QUERY);
+
+        QueryResponse mockResult = makeMockQueryResult(schemaForRead, 100);
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
+                            assertEquals(PASSTHROUGH_QUERY, request.queryString());
+                            return mockResult;
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaForRead,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArgs, null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertTrue(response.getRecords().getRowCount() > 0);
+    }
+
+    @Test
+    public void doReadRecords_WithPagination_ShouldPaginate()
+            throws Exception
+    {
+        String expectedQuery = EXPECTED_QUERY_PAGINATION;
+
+        final int[] callCount = {0};
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
+                            if (callCount[0] == 0) {
+                                assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
+                                assertEquals(null, request.nextToken());
+                            } else {
+                                assertNotNull(request.nextToken());
+                            }
+                            callCount[0]++;
+
+                            QueryResponse.Builder responseBuilder = QueryResponse.builder();
+                            List<Row> rows = new ArrayList<>();
+                            for (int i = 0; i < 10; i++) {
+                                List<Datum> columnData = new ArrayList<>();
+                                // Create proper data types for each field
+                                columnData.add(Datum.builder().scalarValue(MEASURE_PREFIX + i).build()); // VARCHAR
+                                columnData.add(Datum.builder().scalarValue(String.valueOf(i * 1.5)).build()); // FLOAT8
+                                columnData.add(Datum.builder().scalarValue(US_EAST_1A).build()); // VARCHAR
+                                columnData.add(Datum.builder().scalarValue(TestUtils.startDate.plusDays(i).toString().replace('T', ' ')).build()); // DATEMILLI
+                                columnData.add(Datum.builder().scalarValue(HOST_PREFIX + i).build()); // VARCHAR
+                                columnData.add(Datum.builder().scalarValue(REGION_1).build()); // VARCHAR
+                                rows.add(Row.builder().data(columnData).build());
+                            }
+                            responseBuilder.rows(rows);
+
+                            if (callCount[0] < 3) {
+                                responseBuilder.nextToken(PAGINATION_TOKEN_PREFIX + callCount[0]);
+                            } else {
+                                responseBuilder.nextToken(null);
+                            }
+
+                            return responseBuilder.build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaForRead,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertTrue(response.getRecords().getRowCount() > 0);
+        assertTrue(callCount[0] >= 2); // Should have paginated
+    }
+
+    @Test
+    public void doReadRecords_WithNullRows_ShouldReturnEmptyResponse()
+            throws Exception
+    {
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            return QueryResponse.builder()
+                                    .rows((List<Row>) null) // Null rows
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaForRead,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(0, response.getRecords().getRowCount());
+    }
+
+    @Test
+    public void doReadRecords_WithEmptyNextToken_ShouldStopPagination()
+            throws Exception
+    {
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+                            // Create proper data types for each field
+                            columnData.add(Datum.builder().scalarValue(MEASURE_1).build()); // VARCHAR
+                            columnData.add(Datum.builder().scalarValue(FLOAT_VALUE_1_5).build()); // FLOAT8
+                            columnData.add(Datum.builder().scalarValue(US_EAST_1A).build()); // VARCHAR
+                            columnData.add(Datum.builder().scalarValue(TestUtils.startDate.toString().replace('T', ' ')).build()); // DATEMILLI
+                            columnData.add(Datum.builder().scalarValue(HOST_1).build()); // VARCHAR
+                            columnData.add(Datum.builder().scalarValue(REGION_1).build()); // VARCHAR
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken("") // Empty string should stop pagination
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaForRead,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+    }
+
+    @Test
+    public void doReadRecords_WithBitType_ShouldReturnRecords()
+            throws Exception
+    {
+        Schema schemaWithBit = SchemaBuilder.newBuilder()
+                .addField("flag", Types.MinorType.BIT.getType())
+                .build();
+
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+                            columnData.add(Datum.builder().scalarValue(TRUE_VALUE).build());
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithBit,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+    }
+
+    @Test
+    public void doReadRecords_WithBigIntType_ShouldReturnRecords()
+            throws Exception
+    {
+        Schema schemaWithBigInt = SchemaBuilder.newBuilder()
+                .addField("count", Types.MinorType.BIGINT.getType())
+                .build();
+
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+                            columnData.add(Datum.builder().scalarValue(BIGINT_VALUE).build());
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithBigInt,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+    }
+
+    @Test
+    public void doReadRecords_WithNullValues_ShouldReturnRecords()
+            throws Exception
+    {
+        Schema schemaWithNulls = SchemaBuilder.newBuilder()
+                .addField(COLUMN_NAME_1, Types.MinorType.VARCHAR.getType())
+                .addField(COLUMN_NAME_2, Types.MinorType.FLOAT8.getType())
+                .addField(COLUMN_NAME_3, Types.MinorType.BIGINT.getType())
+                .addField(COLUMN_NAME_4, Types.MinorType.DATEMILLI.getType())
+                .build();
+
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+                            columnData.add(Datum.builder().scalarValue(null).build()); // Null VARCHAR
+                            columnData.add(Datum.builder().scalarValue(null).build()); // Null FLOAT8
+                            columnData.add(Datum.builder().scalarValue(null).build()); // Null BIGINT
+                            columnData.add(Datum.builder().scalarValue(null).build()); // Null DATEMILLI
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithNulls,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+    }
+
+    @Test
+    public void doReadRecords_WithTimeSeriesIntValue_ShouldReturnRecords()
+            throws Exception
+    {
+        Schema schemaWithTimeSeriesInt = SchemaBuilder.newBuilder()
+                .addField(FieldBuilder.newBuilder("cpu_utilization", Types.MinorType.LIST.getType())
+                        .addField(FieldBuilder.newBuilder("cpu_utilization", Types.MinorType.STRUCT.getType())
+                                .addDateMilliField("time")
+                                .addIntField("measure_value::int")
+                                .build())
+                        .build())
+                .build();
+
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+
+                            List<TimeSeriesDataPoint> dataPoints = new ArrayList<>();
+                            for (int i = 0; i < 5; i++) {
+                                TimeSeriesDataPoint dataPoint = TimeSeriesDataPoint.builder()
+                                        .time(TIMESTAMP_2024_01_01)
+                                        .value(Datum.builder().scalarValue(String.valueOf(i * 10)).build())
+                                        .build();
+                                dataPoints.add(dataPoint);
+                            }
+
+                            columnData.add(Datum.builder().timeSeriesValue(dataPoints).build());
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithTimeSeriesInt,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+    }
+
+    @Test
+    public void doReadRecords_WithTimeSeriesBitValue_ShouldReturnRecords()
+            throws Exception
+    {
+        Schema schemaWithTimeSeriesBit = SchemaBuilder.newBuilder()
+                .addField(FieldBuilder.newBuilder("status", Types.MinorType.LIST.getType())
+                        .addField(FieldBuilder.newBuilder("status", Types.MinorType.STRUCT.getType())
+                                .addDateMilliField("time")
+                                .addBitField("measure_value::bit")
+                                .build())
+                        .build())
+                .build();
+
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            List<Row> rows = new ArrayList<>();
+                            List<Datum> columnData = new ArrayList<>();
+
+                            List<TimeSeriesDataPoint> dataPoints = new ArrayList<>();
+                            TimeSeriesDataPoint dataPoint = TimeSeriesDataPoint.builder()
+                                    .time(TIMESTAMP_2024_01_01)
+                                    .value(Datum.builder().scalarValue(TRUE_VALUE).build())
+                                    .build();
+                            dataPoints.add(dataPoint);
+
+                            columnData.add(Datum.builder().timeSeriesValue(dataPoints).build());
+                            rows.add(Row.builder().data(columnData).build());
+
+                            return QueryResponse.builder()
+                                    .rows(rows)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithTimeSeriesBit,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(1, response.getRecords().getRowCount());
+    }
+
+
+    @Test(expected = RuntimeException.class)
+    public void doReadRecords_WithUnsupportedFieldType_ShouldThrowRuntimeException()
+            throws Exception
+    {
+        Schema schemaWithUnsupportedType = SchemaBuilder.newBuilder()
+                .addField(COLUMN_NAME_1, Types.MinorType.INT.getType()) // INT is not directly supported
+                .build();
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaWithUnsupportedType,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        handler.doReadRecords(allocator, request);
+    }
+
+    @Test
+    public void doReadRecords_WithEmptyRowsList_ShouldReturnEmptyResponse()
+            throws Exception
+    {
+        when(mockClient.query(nullable(QueryRequest.class)))
+                .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
+                            return QueryResponse.builder()
+                                    .rows(new ArrayList<>()) // Empty list (not null)
+                                    .nextToken(null)
+                                    .build();
+                        }
+                );
+
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schemaForRead,
+                split,
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+
+        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
+        assertTrue(rawResponse instanceof ReadRecordsResponse);
+
+        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        assertEquals(0, response.getRecords().getRowCount());
     }
 }

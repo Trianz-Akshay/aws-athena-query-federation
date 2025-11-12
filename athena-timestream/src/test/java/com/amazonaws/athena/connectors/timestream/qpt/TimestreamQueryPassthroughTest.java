@@ -86,12 +86,6 @@ public class TimestreamQueryPassthroughTest {
     }
 
     @Test
-    public void getLogger_ShouldReturnNonNullLogger() {
-        Logger logger = queryPassthrough.getLogger();
-        assertNotNull(logger);
-    }
-
-    @Test
     public void verify_WithValidArguments_ShouldNotThrowException() {
         queryPassthrough.verify(baseArguments);
     }

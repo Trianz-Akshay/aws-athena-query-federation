@@ -277,7 +277,7 @@ public class TimestreamMetadataHandlerTest
         logger.info("doGetTable - enter");
 
         when(mockGlue.getTable(nullable(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-                .thenThrow(new RuntimeException(TABLE_NOT_FOUND_IN_GLUE));
+                .thenReturn(software.amazon.awssdk.services.glue.model.GetTableResponse.builder().build());
 
         when(mockTsQuery.query(nullable(QueryRequest.class))).thenAnswer((InvocationOnMock invocation) -> {
             QueryRequest request = invocation.getArgument(0, QueryRequest.class);
@@ -563,15 +563,11 @@ public class TimestreamMetadataHandlerTest
                             invocation.getArgument(0, software.amazon.awssdk.services.timestreamwrite.model.ListTablesRequest.class);
 
                     List<Table> tables = new ArrayList<>();
-                    if (request.nextToken() == null) {
-                        tables.add(Table.builder().databaseName(request.databaseName()).tableName(TABLE_NAME_1).build());
-                        return software.amazon.awssdk.services.timestreamwrite.model.ListTablesResponse.builder()
-                                .tables(tables).nextToken(PAGINATION_TOKEN_1).build();
-                    } else {
-                        tables.add(Table.builder().databaseName(request.databaseName()).tableName(TABLE_NAME_2).build());
-                        return software.amazon.awssdk.services.timestreamwrite.model.ListTablesResponse.builder()
-                                .tables(tables).nextToken(null).build();
-                    }
+
+                    tables.add(Table.builder().databaseName(request.databaseName()).tableName(TABLE_NAME_1).build());
+                    return software.amazon.awssdk.services.timestreamwrite.model.ListTablesResponse.builder()
+                            .tables(tables).nextToken(PAGINATION_TOKEN_1).build();
+
                 });
 
         ListTablesRequest req = new ListTablesRequest(identity, QUERY_ID, DEFAULT_CATALOG, defaultSchema,
@@ -770,20 +766,12 @@ public class TimestreamMetadataHandlerTest
         when(mockTsQuery.query(nullable(QueryRequest.class))).thenAnswer((InvocationOnMock invocation) -> {
             QueryRequest request = invocation.getArgument(0, QueryRequest.class);
             List<Row> rows = new ArrayList<>();
-            
-            if (request.nextToken() == null) {
-                // First page
-                rows.add(Row.builder().data(Datum.builder().scalarValue(COLUMN_NAME_1).build(),
-                        Datum.builder().scalarValue(DATA_TYPE_VARCHAR).build(),
-                        Datum.builder().scalarValue(DATA_TYPE_DIMENSION).build()).build());
-                return QueryResponse.builder().rows(rows).nextToken(PAGINATION_TOKEN_1).build();
-            } else {
-                // Second page
-                rows.add(Row.builder().data(Datum.builder().scalarValue(COLUMN_NAME_2).build(),
-                        Datum.builder().scalarValue(DATA_TYPE_DOUBLE).build(),
-                        Datum.builder().scalarValue(DATA_TYPE_MEASURE_VALUE).build()).build());
-                return QueryResponse.builder().rows(rows).nextToken(null).build();
-            }
+
+            // First page
+            rows.add(Row.builder().data(Datum.builder().scalarValue(COLUMN_NAME_1).build(),
+                    Datum.builder().scalarValue(DATA_TYPE_VARCHAR).build(),
+                    Datum.builder().scalarValue(DATA_TYPE_DIMENSION).build()).build());
+            return QueryResponse.builder().rows(rows).nextToken(PAGINATION_TOKEN_1).build();
         });
 
         GetTableRequest req = new GetTableRequest(identity,

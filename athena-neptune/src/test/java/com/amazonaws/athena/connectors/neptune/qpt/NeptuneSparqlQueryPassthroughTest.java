@@ -38,10 +38,12 @@ import static org.junit.Assert.fail;
 @RunWith(MockitoJUnitRunner.class)
 public class NeptuneSparqlQueryPassthroughTest {
 
+    public static final String EXPECTED_ATHENA_CONNECTOR_EXCEPTION = "Expected AthenaConnectorException";
     private static final String TEST_DB = "testDb";
     private static final String TEST_COLLECTION = "testCollection";
     private static final String VALID_QUERY = "SELECT * WHERE { ?s ?p ?o }";
     private static final String VALID_SCHEMA_FUNCTION = "system.query";
+    public static final String MISSING_QUERY_PASSTHROUGH_ARGUMENT = "Missing Query Passthrough Argument: ";
 
     private final NeptuneSparqlQueryPassthrough queryPassthrough = new NeptuneSparqlQueryPassthrough();
     private Map<String, String> baseArguments;
@@ -73,7 +75,7 @@ public class NeptuneSparqlQueryPassthroughTest {
     public void testVerifyWithEmptyArguments() {
         try {
             queryPassthrough.verify(new HashMap<>());
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
             assertEquals("Function Signature doesn't match implementation's", e.getMessage());
         }
@@ -85,9 +87,9 @@ public class NeptuneSparqlQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + DATABASE, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + DATABASE, e.getMessage());
         }
     }
 
@@ -97,9 +99,9 @@ public class NeptuneSparqlQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + COLLECTION, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + COLLECTION, e.getMessage());
         }
     }
 
@@ -109,9 +111,9 @@ public class NeptuneSparqlQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + QUERY, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + QUERY, e.getMessage());
         }
     }
 
@@ -121,7 +123,7 @@ public class NeptuneSparqlQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
             assertEquals("Mixed operations not supported: Cannot use both SPARQL query and Gremlin traverse in the same request", e.getMessage());
         }

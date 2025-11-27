@@ -44,6 +44,8 @@ public class NeptuneGremlinQueryPassthroughTest {
     private static final String TEST_COMPONENT_TYPE = "testType";
     private static final String VALID_TRAVERSE = "g.V().hasLabel('airport').valueMap()";
     private static final String VALID_SCHEMA_FUNCTION = "system.traverse";
+    public static final String EXPECTED_ATHENA_CONNECTOR_EXCEPTION = "Expected AthenaConnectorException";
+    public static final String MISSING_QUERY_PASSTHROUGH_ARGUMENT = "Missing Query Passthrough Argument: ";
 
     private final NeptuneGremlinQueryPassthrough queryPassthrough = new NeptuneGremlinQueryPassthrough();
     private Map<String, String> baseArguments;
@@ -76,7 +78,7 @@ public class NeptuneGremlinQueryPassthroughTest {
     public void testVerifyWithEmptyArguments() {
         try {
             queryPassthrough.verify(new HashMap<>());
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
             assertEquals("Function Signature doesn't match implementation's", e.getMessage());
         }
@@ -88,9 +90,9 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + DATABASE, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + DATABASE, e.getMessage());
         }
     }
 
@@ -100,9 +102,9 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + COLLECTION, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + COLLECTION, e.getMessage());
         }
     }
 
@@ -112,9 +114,9 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + COMPONENT_TYPE, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + COMPONENT_TYPE, e.getMessage());
         }
     }
 
@@ -124,9 +126,9 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
-            assertEquals("Missing Query Passthrough Argument: " + TRAVERSE, e.getMessage());
+            assertEquals(MISSING_QUERY_PASSTHROUGH_ARGUMENT + TRAVERSE, e.getMessage());
         }
     }
 
@@ -136,7 +138,7 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
             assertEquals("Mixed operations not supported: Cannot use both SPARQL query and Gremlin traverse in the same request", e.getMessage());
         }
@@ -148,7 +150,7 @@ public class NeptuneGremlinQueryPassthroughTest {
 
         try {
             queryPassthrough.verify(baseArguments);
-            fail("Expected AthenaConnectorException");
+            fail(EXPECTED_ATHENA_CONNECTOR_EXCEPTION);
         } catch (AthenaConnectorException e) {
             assertEquals("Unsupported gremlin query format: We are currently supporting only valueMap gremlin queries. " +
                     "Please make sure you are using valueMap gremlin query. " +

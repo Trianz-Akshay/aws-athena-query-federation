@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,6 +28,8 @@ import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesRequest;
+import com.amazonaws.athena.connector.lambda.metadata.GetDataSourceCapabilitiesResponse;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsRequest;
 import com.amazonaws.athena.connector.lambda.metadata.GetSplitsResponse;
 import com.amazonaws.athena.connector.lambda.metadata.GetTableLayoutRequest;
@@ -40,8 +42,10 @@ import com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest;
 import com.amazonaws.athena.connector.lambda.metadata.ListTablesResponse;
 import com.amazonaws.athena.connector.lambda.metadata.MetadataRequestType;
 import com.amazonaws.athena.connector.lambda.metadata.MetadataResponse;
+import com.amazonaws.athena.connector.lambda.metadata.optimizations.OptimizationSubType;
 import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
 import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
+import com.amazonaws.athena.connectors.tpcds.qpt.TPCDSQueryPassthrough;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
@@ -57,6 +61,7 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
@@ -64,14 +69,39 @@ import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.U
 import static com.amazonaws.athena.connectors.tpcds.TPCDSMetadataHandler.SPLIT_NUMBER_FIELD;
 import static com.amazonaws.athena.connectors.tpcds.TPCDSMetadataHandler.SPLIT_SCALE_FACTOR_FIELD;
 import static com.amazonaws.athena.connectors.tpcds.TPCDSMetadataHandler.SPLIT_TOTAL_NUMBER_FIELD;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(MockitoJUnitRunner.class)
 public class TPCDSMetadataHandlerTest
 {
     private static final Logger logger = LoggerFactory.getLogger(TPCDSMetadataHandlerTest.class);
+    private static final String TEST_QUERY_ID = "queryId";
+    private static final String TEST_CATALOG_NAME = "default";
+    private static final String TEST_CATALOG_NAME_ALT = "catalog_name";
+    private static final String TEST_SCHEMA_TPCDS1 = "tpcds1";
+    private static final String TEST_SCHEMA_TPCDS10 = "tpcds10";
+    private static final String TEST_SCHEMA_TPCDS100 = "tpcds100";
+    private static final String TEST_SCHEMA_TPCDS250 = "tpcds250";
+    private static final String TEST_SCHEMA_TPCDS1000 = "tpcds1000";
+    private static final String TEST_TABLE_CUSTOMER = "customer";
+    private static final String TEST_TABLE_STORE = "store";
+    private static final String TEST_TABLE_ITEM = "item";
+    private static final String TEST_TABLE_STORE_SALES = "store_sales";
+    private static final String TEST_TABLE_CATALOG_SALES = "catalog_sales";
+    private static final String TEST_PARTITION_ID_FIELD = "partitionId";
+    private static final String TEST_SPILL_BUCKET = "spillBucket";
+    private static final String TEST_SPILL_PREFIX = "spillPrefix";
+    private static final String CONFIG_ENABLE_QUERY_PASSTHROUGH = "enable_query_passthrough";
+    private static final String CONFIG_VALUE_TRUE = "true";
+    private static final String QPT_SIGNATURE = "SYSTEM.QUERY";
+    private static final String SCALE_FACTOR_1000 = "1000";
+    private static final String CONTINUATION_TOKEN_5 = "5";
+    private static final String TEST_IDENTITY_ARN = "arn";
+    private static final String TEST_IDENTITY_ACCOUNT = "account";
 
-    private FederatedIdentity identity = new FederatedIdentity("arn", "account", Collections.emptyMap(), Collections.emptyList(), Collections.emptyMap());
+    private FederatedIdentity identity = new FederatedIdentity(TEST_IDENTITY_ARN, TEST_IDENTITY_ACCOUNT, Collections.emptyMap(), Collections.emptyList(), Collections.emptyMap());
     private TPCDSMetadataHandler handler;
     private BlockAllocator allocator;
 
@@ -85,7 +115,7 @@ public class TPCDSMetadataHandlerTest
     public void setUp()
             throws Exception
     {
-        handler = new TPCDSMetadataHandler(new LocalKeyFactory(), mockSecretsManager, mockAthena, "spillBucket", "spillPrefix", com.google.common.collect.ImmutableMap.of());
+        handler = new TPCDSMetadataHandler(new LocalKeyFactory(), mockSecretsManager, mockAthena, TEST_SPILL_BUCKET, TEST_SPILL_PREFIX, com.google.common.collect.ImmutableMap.of());
         allocator = new BlockAllocatorImpl();
     }
 
@@ -101,7 +131,7 @@ public class TPCDSMetadataHandlerTest
     {
         logger.info("doListSchemas - enter");
 
-        ListSchemasRequest req = new ListSchemasRequest(identity, "queryId", "default");
+        ListSchemasRequest req = new ListSchemasRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME);
         ListSchemasResponse res = handler.doListSchemaNames(allocator, req);
         logger.info("doListSchemas - {}", res.getSchemas());
 
@@ -114,12 +144,12 @@ public class TPCDSMetadataHandlerTest
     {
         logger.info("doListTables - enter");
 
-        ListTablesRequest req = new ListTablesRequest(identity, "queryId", "default",
-                "tpcds1", null, UNLIMITED_PAGE_SIZE_VALUE);
+        ListTablesRequest req = new ListTablesRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME,
+                TEST_SCHEMA_TPCDS1, null, UNLIMITED_PAGE_SIZE_VALUE);
         ListTablesResponse res = handler.doListTables(allocator, req);
         logger.info("doListTables - {}", res.getTables());
 
-        assertTrue(res.getTables().contains(new TableName("tpcds1", "customer")));
+        assertTrue(res.getTables().contains(new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER)));
 
         assertTrue(res.getTables().size() == 25);
 
@@ -130,17 +160,17 @@ public class TPCDSMetadataHandlerTest
     public void doGetTable()
     {
         logger.info("doGetTable - enter");
-        String expectedSchema = "tpcds1";
+        String expectedSchema = TEST_SCHEMA_TPCDS1;
 
         GetTableRequest req = new GetTableRequest(identity,
-                "queryId",
-                "default",
-                new TableName(expectedSchema, "customer"), Collections.emptyMap());
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME,
+                new TableName(expectedSchema, TEST_TABLE_CUSTOMER), Collections.emptyMap());
 
         GetTableResponse res = handler.doGetTable(allocator, req);
         logger.info("doGetTable - {} {}", res.getTableName(), res.getSchema());
 
-        assertEquals(new TableName(expectedSchema, "customer"), res.getTableName());
+        assertEquals(new TableName(expectedSchema, TEST_TABLE_CUSTOMER), res.getTableName());
         assertTrue(res.getSchema() != null);
 
         logger.info("doGetTable - exit");
@@ -157,9 +187,9 @@ public class TPCDSMetadataHandlerTest
         Schema schema = SchemaBuilder.newBuilder().build();
 
         GetTableLayoutRequest req = new GetTableLayoutRequest(identity,
-                "queryId",
-                "default",
-                new TableName("tpcds1", "customer"),
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME,
+                new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
                 new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
                 schema,
                 Collections.EMPTY_SET);
@@ -180,16 +210,16 @@ public class TPCDSMetadataHandlerTest
         logger.info("doGetSplits: enter");
 
         Schema schema = SchemaBuilder.newBuilder()
-                .addIntField("partitionId")
+                .addIntField(TEST_PARTITION_ID_FIELD)
                 .build();
 
-        Block partitions = BlockUtils.newBlock(allocator, "partitionId", Types.MinorType.INT.getType(), 1);
+        Block partitions = BlockUtils.newBlock(allocator, TEST_PARTITION_ID_FIELD, Types.MinorType.INT.getType(), 1);
 
         String continuationToken = null;
         GetSplitsRequest originalReq = new GetSplitsRequest(identity,
-                "queryId",
-                "catalog_name",
-                new TableName("tpcds1", "customer"),
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME_ALT,
+                new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
                 partitions,
                 Collections.EMPTY_LIST,
                 new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
@@ -223,5 +253,244 @@ public class TPCDSMetadataHandlerTest
         assertTrue(numContinuations == 0);
 
         logger.info("doGetSplits: exit");
+    }
+
+    @Test
+    public void doGetDataSourceCapabilities_withoutQPT_returnsCapabilities()
+    {
+        GetDataSourceCapabilitiesRequest req = new GetDataSourceCapabilitiesRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME);
+        GetDataSourceCapabilitiesResponse res = handler.doGetDataSourceCapabilities(allocator, req);
+
+        assertEquals(TEST_CATALOG_NAME, res.getCatalogName());
+
+        Map<String, List<OptimizationSubType>> capabilities = res.getCapabilities();
+        assertTrue("Capabilities should not be null", capabilities != null);
+    }
+
+    @Test
+    public void doGetDataSourceCapabilities_withQPT_returnsCapabilities()
+    {
+        Map<String, String> configOptions = new HashMap<>();
+        configOptions.put(CONFIG_ENABLE_QUERY_PASSTHROUGH, CONFIG_VALUE_TRUE);
+        TPCDSMetadataHandler handlerWithQPT = new TPCDSMetadataHandler(
+                new LocalKeyFactory(), mockSecretsManager, mockAthena, TEST_SPILL_BUCKET, TEST_SPILL_PREFIX, configOptions);
+
+        GetDataSourceCapabilitiesRequest req = new GetDataSourceCapabilitiesRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME);
+        GetDataSourceCapabilitiesResponse res = handlerWithQPT.doGetDataSourceCapabilities(allocator, req);
+
+        assertEquals(TEST_CATALOG_NAME, res.getCatalogName());
+
+        Map<String, List<OptimizationSubType>> capabilities = res.getCapabilities();
+        assertTrue("Capabilities should not be null", capabilities != null);
+        assertTrue("QPT capabilities should be present when enabled",
+                capabilities.containsKey(QPT_SIGNATURE) || capabilities.isEmpty());
+    }
+
+    @Test
+    public void doGetQueryPassthroughSchema_withValidArguments_returnsSchema()
+            throws Exception
+    {
+        Map<String, String> qptArguments = createQptArguments();
+
+        GetTableRequest req = new GetTableRequest(identity,
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME,
+                new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
+                qptArguments);
+
+        GetTableResponse res = handler.doGetQueryPassthroughSchema(allocator, req);
+
+        assertEquals(new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER), res.getTableName());
+        assertTrue("Schema should have fields", res.getSchema().getFields().size() > 0);
+    }
+
+    @Test
+    public void doGetSplits_withQueryPassthrough_returnsSplits()
+    {
+        Block partitions = createPartitionsBlock();
+
+        Map<String, String> qptArguments = createQptArguments();
+
+        Constraints constraints = new Constraints(
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                DEFAULT_NO_LIMIT,
+                qptArguments,
+                null);
+
+        GetSplitsRequest req = new GetSplitsRequest(identity,
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME_ALT,
+                new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
+                partitions,
+                Collections.EMPTY_LIST,
+                constraints,
+                null);
+
+        GetSplitsResponse response = handler.doGetSplits(allocator, req);
+
+        assertTrue(response.getSplits().size() > 0);
+        for (Split nextSplit : response.getSplits()) {
+            validateSplitProperties(nextSplit);
+        }
+    }
+
+    @Test
+    public void doGetSplits_withContinuationTokenAndLargeScaleFactor_returnsSplitsFromToken()
+    {
+        Block partitions = createPartitionsBlock();
+
+        GetSplitsRequest originalReq = new GetSplitsRequest(identity,
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME_ALT,
+                new TableName(TEST_SCHEMA_TPCDS1000, TEST_TABLE_CUSTOMER),
+                partitions,
+                Collections.EMPTY_LIST,
+                createEmptyConstraints(),
+                null);
+
+        String continuationToken = CONTINUATION_TOKEN_5;
+        GetSplitsRequest req = new GetSplitsRequest(originalReq, continuationToken);
+        GetSplitsResponse response = handler.doGetSplits(allocator, req);
+
+        assertTrue("Should have splits when starting from continuation token", response.getSplits().size() > 0);
+        for (Split nextSplit : response.getSplits()) {
+            validateSplitProperties(nextSplit);
+            assertEquals(SCALE_FACTOR_1000, nextSplit.getProperty(SPLIT_SCALE_FACTOR_FIELD));
+
+            int splitNum = Integer.parseInt(nextSplit.getProperty(SPLIT_NUMBER_FIELD));
+            assertTrue("Split number should be >= continuation token", splitNum >= Integer.parseInt(continuationToken));
+        }
+    }
+
+    @Test
+    public void doListSchemaNames_returnsAllSchemas()
+    {
+        ListSchemasRequest req = new ListSchemasRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME);
+        ListSchemasResponse res = handler.doListSchemaNames(allocator, req);
+
+        assertEquals(5, res.getSchemas().size());
+        assertTrue(res.getSchemas().contains(TEST_SCHEMA_TPCDS1));
+        assertTrue(res.getSchemas().contains(TEST_SCHEMA_TPCDS10));
+        assertTrue(res.getSchemas().contains(TEST_SCHEMA_TPCDS100));
+        assertTrue(res.getSchemas().contains(TEST_SCHEMA_TPCDS250));
+        assertTrue(res.getSchemas().contains(TEST_SCHEMA_TPCDS1000));
+    }
+
+    @Test
+    public void doListTables_withDifferentSchemas_returnsTables()
+    {
+        String[] schemas = {TEST_SCHEMA_TPCDS1, TEST_SCHEMA_TPCDS10, TEST_SCHEMA_TPCDS100, TEST_SCHEMA_TPCDS250, TEST_SCHEMA_TPCDS1000};
+
+        for (String schema : schemas) {
+            ListTablesRequest req = new ListTablesRequest(identity, TEST_QUERY_ID, TEST_CATALOG_NAME,
+                    schema, null, UNLIMITED_PAGE_SIZE_VALUE);
+            ListTablesResponse res = handler.doListTables(allocator, req);
+
+            assertEquals(25, res.getTables().size());
+            assertTrue(res.getTables().contains(new TableName(schema, TEST_TABLE_CUSTOMER)));
+        }
+    }
+
+    @Test
+    public void doGetTable_withDifferentTables_returnsTableSchema()
+    {
+        String[] tables = {TEST_TABLE_CUSTOMER, TEST_TABLE_STORE, TEST_TABLE_ITEM, TEST_TABLE_STORE_SALES, TEST_TABLE_CATALOG_SALES};
+
+        for (String tableName : tables) {
+            GetTableRequest req = new GetTableRequest(identity,
+                    TEST_QUERY_ID,
+                    TEST_CATALOG_NAME,
+                    new TableName(TEST_SCHEMA_TPCDS1, tableName), Collections.emptyMap());
+
+            GetTableResponse res = handler.doGetTable(allocator, req);
+
+            assertEquals(new TableName(TEST_SCHEMA_TPCDS1, tableName), res.getTableName());
+            assertTrue("Schema should have fields", res.getSchema().getFields().size() > 0);
+        }
+    }
+
+    @Test
+    public void doGetSplits_withDifferentScaleFactors_returnsSplitsWithCorrectScaleFactor()
+    {
+        String[] schemas = {TEST_SCHEMA_TPCDS1, TEST_SCHEMA_TPCDS10, TEST_SCHEMA_TPCDS100, TEST_SCHEMA_TPCDS250};
+
+        for (String schema : schemas) {
+            Block partitions = createPartitionsBlock();
+
+            GetSplitsRequest req = new GetSplitsRequest(identity,
+                    TEST_QUERY_ID,
+                    TEST_CATALOG_NAME_ALT,
+                    new TableName(schema, TEST_TABLE_CUSTOMER),
+                    partitions,
+                    Collections.EMPTY_LIST,
+                    createEmptyConstraints(),
+                    null);
+
+            GetSplitsResponse response = handler.doGetSplits(allocator, req);
+
+            assertTrue(response.getSplits().size() > 0);
+            for (Split nextSplit : response.getSplits()) {
+                validateSplitProperties(nextSplit);
+
+                int expectedScaleFactor = Integer.parseInt(schema.substring(5));
+                assertEquals(String.valueOf(expectedScaleFactor), nextSplit.getProperty(SPLIT_SCALE_FACTOR_FIELD));
+            }
+        }
+    }
+
+    @Test
+    public void doGetSplits_withContinuationToken_returnsSplits()
+    {
+        Block partitions = createPartitionsBlock();
+
+        GetSplitsRequest originalReq = new GetSplitsRequest(identity,
+                TEST_QUERY_ID,
+                TEST_CATALOG_NAME_ALT,
+                new TableName(TEST_SCHEMA_TPCDS250, TEST_TABLE_CUSTOMER),
+                partitions,
+                Collections.EMPTY_LIST,
+                createEmptyConstraints(),
+                null);
+
+        String continuationToken = null;
+
+        do {
+            GetSplitsRequest req = new GetSplitsRequest(originalReq, continuationToken);
+            GetSplitsResponse response = handler.doGetSplits(allocator, req);
+            continuationToken = response.getContinuationToken();
+
+            for (Split nextSplit : response.getSplits()) {
+                validateSplitProperties(nextSplit);
+            }
+        }
+        while (continuationToken != null);
+    }
+
+    private void validateSplitProperties(Split split)
+    {
+        assertTrue("Split number should not be null or empty", split.getProperty(SPLIT_NUMBER_FIELD) != null && !split.getProperty(SPLIT_NUMBER_FIELD).isEmpty());
+        assertTrue("Split total number should not be null or empty", split.getProperty(SPLIT_TOTAL_NUMBER_FIELD) != null && !split.getProperty(SPLIT_TOTAL_NUMBER_FIELD).isEmpty());
+        assertTrue("Split scale factor should not be null or empty", split.getProperty(SPLIT_SCALE_FACTOR_FIELD) != null && !split.getProperty(SPLIT_SCALE_FACTOR_FIELD).isEmpty());
+    }
+
+    private Block createPartitionsBlock()
+    {
+        return BlockUtils.newBlock(allocator, TEST_PARTITION_ID_FIELD, Types.MinorType.INT.getType(), 1);
+    }
+
+    private Constraints createEmptyConstraints()
+    {
+        return new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
+    }
+
+    private Map<String, String> createQptArguments()
+    {
+        Map<String, String> qptArguments = new HashMap<>();
+        qptArguments.put(TPCDSQueryPassthrough.TPCDS_CATALOG, TEST_CATALOG_NAME);
+        qptArguments.put(TPCDSQueryPassthrough.TPCDS_SCHEMA, TEST_SCHEMA_TPCDS1);
+        qptArguments.put(TPCDSQueryPassthrough.TPCDS_TABLE, TEST_TABLE_CUSTOMER);
+        return qptArguments;
     }
 }

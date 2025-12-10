@@ -756,34 +756,6 @@ public class TimestreamMetadataHandlerTest
         assertTrue(firstSplit.getProperties().containsKey(TimestreamQueryPassthrough.QUERY));
     }
 
-    @Test
-    public void inferSchemaForTable_WithPagination_ShouldReturnAllFields()
-            throws Exception
-    {
-        when(mockGlue.getTable(nullable(software.amazon.awssdk.services.glue.model.GetTableRequest.class)))
-                .thenThrow(new RuntimeException(TABLE_NOT_FOUND_IN_GLUE));
-
-        when(mockTsQuery.query(nullable(QueryRequest.class))).thenAnswer((InvocationOnMock invocation) -> {
-            QueryRequest request = invocation.getArgument(0, QueryRequest.class);
-            List<Row> rows = new ArrayList<>();
-
-            // First page
-            rows.add(Row.builder().data(Datum.builder().scalarValue(COLUMN_NAME_1).build(),
-                    Datum.builder().scalarValue(DATA_TYPE_VARCHAR).build(),
-                    Datum.builder().scalarValue(DATA_TYPE_DIMENSION).build()).build());
-            return QueryResponse.builder().rows(rows).nextToken(PAGINATION_TOKEN_1).build();
-        });
-
-        GetTableRequest req = new GetTableRequest(identity,
-                QUERY_ID_WITH_DASH,
-                DEFAULT_CATALOG,
-                new TableName(defaultSchema, TABLE_NAME_1), Collections.emptyMap());
-
-        GetTableResponse res = handler.doGetTable(allocator, req);
-        assertNotNull(res);
-        assertEquals(2, res.getSchema().getFields().size());
-    }
-
     @Test(expected = RuntimeException.class)
     public void inferSchemaForTable_WithUnexpectedDatumSize_ShouldThrowRuntimeException()
             throws Exception

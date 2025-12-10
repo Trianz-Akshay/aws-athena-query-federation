@@ -171,7 +171,7 @@ public class TPCDSMetadataHandlerTest
         logger.info("doGetTable - {} {}", res.getTableName(), res.getSchema());
 
         assertEquals(new TableName(expectedSchema, TEST_TABLE_CUSTOMER), res.getTableName());
-        assertTrue(res.getSchema() != null);
+        assertNotNull("Schema should not be null", res.getSchema());
 
         logger.info("doGetTable - exit");
     }
@@ -264,7 +264,7 @@ public class TPCDSMetadataHandlerTest
         assertEquals(TEST_CATALOG_NAME, res.getCatalogName());
 
         Map<String, List<OptimizationSubType>> capabilities = res.getCapabilities();
-        assertTrue("Capabilities should not be null", capabilities != null);
+        assertNotNull("Capabilities should not be null", capabilities);
     }
 
     @Test
@@ -281,7 +281,7 @@ public class TPCDSMetadataHandlerTest
         assertEquals(TEST_CATALOG_NAME, res.getCatalogName());
 
         Map<String, List<OptimizationSubType>> capabilities = res.getCapabilities();
-        assertTrue("Capabilities should not be null", capabilities != null);
+        assertNotNull("Capabilities should not be null", capabilities);
         assertTrue("QPT capabilities should be present when enabled",
                 capabilities.containsKey(QPT_SIGNATURE) || capabilities.isEmpty());
     }
@@ -319,12 +319,10 @@ public class TPCDSMetadataHandlerTest
                 qptArguments,
                 null);
 
-        GetSplitsRequest req = new GetSplitsRequest(identity,
-                TEST_QUERY_ID,
+        GetSplitsRequest req = createGetSplitsRequest(
                 TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
                 partitions,
-                Collections.EMPTY_LIST,
                 constraints,
                 null);
 
@@ -341,12 +339,10 @@ public class TPCDSMetadataHandlerTest
     {
         Block partitions = createPartitionsBlock();
 
-        GetSplitsRequest originalReq = new GetSplitsRequest(identity,
-                TEST_QUERY_ID,
+        GetSplitsRequest originalReq = createGetSplitsRequest(
                 TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS1000, TEST_TABLE_CUSTOMER),
                 partitions,
-                Collections.EMPTY_LIST,
                 createEmptyConstraints(),
                 null);
 
@@ -419,12 +415,10 @@ public class TPCDSMetadataHandlerTest
         for (String schema : schemas) {
             Block partitions = createPartitionsBlock();
 
-            GetSplitsRequest req = new GetSplitsRequest(identity,
-                    TEST_QUERY_ID,
+            GetSplitsRequest req = createGetSplitsRequest(
                     TEST_CATALOG_NAME_ALT,
                     new TableName(schema, TEST_TABLE_CUSTOMER),
                     partitions,
-                    Collections.EMPTY_LIST,
                     createEmptyConstraints(),
                     null);
 
@@ -445,12 +439,10 @@ public class TPCDSMetadataHandlerTest
     {
         Block partitions = createPartitionsBlock();
 
-        GetSplitsRequest originalReq = new GetSplitsRequest(identity,
-                TEST_QUERY_ID,
+        GetSplitsRequest originalReq = createGetSplitsRequest(
                 TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS250, TEST_TABLE_CUSTOMER),
                 partitions,
-                Collections.EMPTY_LIST,
                 createEmptyConstraints(),
                 null);
 
@@ -470,9 +462,14 @@ public class TPCDSMetadataHandlerTest
 
     private void validateSplitProperties(Split split)
     {
-        assertTrue("Split number should not be null or empty", split.getProperty(SPLIT_NUMBER_FIELD) != null && !split.getProperty(SPLIT_NUMBER_FIELD).isEmpty());
-        assertTrue("Split total number should not be null or empty", split.getProperty(SPLIT_TOTAL_NUMBER_FIELD) != null && !split.getProperty(SPLIT_TOTAL_NUMBER_FIELD).isEmpty());
-        assertTrue("Split scale factor should not be null or empty", split.getProperty(SPLIT_SCALE_FACTOR_FIELD) != null && !split.getProperty(SPLIT_SCALE_FACTOR_FIELD).isEmpty());
+        String splitNumber = split.getProperty(SPLIT_NUMBER_FIELD);
+        assertNotNull("Split number should not be null", splitNumber);
+
+        String splitTotalNumber = split.getProperty(SPLIT_TOTAL_NUMBER_FIELD);
+        assertNotNull("Split total number should not be null", splitTotalNumber);
+
+        String splitScaleFactor = split.getProperty(SPLIT_SCALE_FACTOR_FIELD);
+        assertNotNull("Split scale factor should not be null", splitScaleFactor);
     }
 
     private Block createPartitionsBlock()
@@ -492,5 +489,17 @@ public class TPCDSMetadataHandlerTest
         qptArguments.put(TPCDSQueryPassthrough.TPCDS_SCHEMA, TEST_SCHEMA_TPCDS1);
         qptArguments.put(TPCDSQueryPassthrough.TPCDS_TABLE, TEST_TABLE_CUSTOMER);
         return qptArguments;
+    }
+
+    private GetSplitsRequest createGetSplitsRequest(String catalogName, TableName tableName, Block partitions, Constraints constraints, String continuationToken)
+    {
+        return new GetSplitsRequest(identity,
+                TEST_QUERY_ID,
+                catalogName,
+                tableName,
+                partitions,
+                Collections.EMPTY_LIST,
+                constraints,
+                continuationToken);
     }
 }

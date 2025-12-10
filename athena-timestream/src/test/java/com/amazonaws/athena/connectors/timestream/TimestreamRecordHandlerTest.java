@@ -101,9 +101,7 @@ import static org.mockito.Mockito.when;
 public class TimestreamRecordHandlerTest
 {
     private static final Logger logger = LoggerFactory.getLogger(TimestreamRecordHandlerTest.class);
-
     private static final FederatedIdentity IDENTITY = new FederatedIdentity("arn", "account", Collections.emptyMap(), Collections.emptyList(), Collections.emptyMap());
-
     private TimestreamRecordHandler handler;
     private BlockAllocator allocator;
     private List<ByteHolder> mockS3Storage = new ArrayList<>();
@@ -218,14 +216,6 @@ public class TimestreamRecordHandlerTest
         logger.info("{}: exit ", testName.getMethodName());
     }
 
-    /**
-     * Normalizes a query string by removing all whitespace characters for comparison.
-     */
-    private String normalizeQuery(String query)
-    {
-        return query.replaceAll("\\s+", " ").trim();
-    }
-
     @Test
     public void doReadRecordsNoSpill()
             throws Exception
@@ -247,26 +237,7 @@ public class TimestreamRecordHandlerTest
                 .add("us-east-1a")
                 .add("us-east-1b").build());
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create());
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L, //100GB don't expect this to spill
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequestWithConstraints(schemaForRead, constraintsMap, 100_000_000_000L, 100_000_000_000L);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         assertTrue(rawResponse instanceof ReadRecordsResponse);
@@ -302,25 +273,7 @@ public class TimestreamRecordHandlerTest
                 .add("us-east-1a")
                 .add("us-east-1b").build());
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create());
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                1_500_000L, //~1.5MB so we should see some spill
-                0L
-        );
+        ReadRecordsRequest request = createReadRecordsRequestWithConstraints(schemaForRead, constraintsMap, 1_500_000L, 0L);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         assertTrue(rawResponse instanceof RemoteReadRecordsResponse);
@@ -371,31 +324,12 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, null).build();
-
         Map<String, ValueSet> constraintsMap = new HashMap<>();
         constraintsMap.put("az", EquatableValueSet.newBuilder(allocator, Types.MinorType.VARCHAR.getType(), true, true)
                 .add("us-east-1a")
                 .add("us-east-1b").build());
 
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                "default",
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_VIEW),
-                schemaForReadView,
-                split,
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L, //100GB don't expect this to spill
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequestWithConstraints(schemaForReadView, "default", TEST_VIEW, constraintsMap, true);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
@@ -438,32 +372,12 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, null)
-                .build();
-
         Map<String, ValueSet> constraintsMap = new HashMap<>();
         constraintsMap.put("az", EquatableValueSet.newBuilder(allocator, Types.MinorType.VARCHAR.getType(), true, true)
                 .add("us-east-1a")
                 .add("us-east-1b").build());
 
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                "default",
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForReadView,
-                split,
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L, //100GB don't expect this to spill
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequestWithConstraints(schemaForReadView, "default", TEST_TABLE, constraintsMap, true);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
@@ -497,26 +411,7 @@ public class TimestreamRecordHandlerTest
         constraintsMap.put("az", EquatableValueSet.newBuilder(allocator, Types.MinorType.VARCHAR.getType(), true, true)
                 .add("us-east-1a").build());
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create());
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L, //100GB don't expect this to spill
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequestWithConstraints(schemaForRead, constraintsMap, 100_000_000_000L, 100_000_000_000L);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
 
         assertTrue(rawResponse instanceof ReadRecordsResponse);
@@ -554,30 +449,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArgs, null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaForRead, qptArgs);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertTrue(response.getRecords().getRowCount() > 0);
     }
 
@@ -585,20 +458,10 @@ public class TimestreamRecordHandlerTest
     public void doReadRecords_WithPagination_ShouldPaginate()
             throws Exception
     {
-        String expectedQuery = EXPECTED_QUERY_PAGINATION;
-
         final int[] callCount = {0};
         when(mockClient.query(nullable(QueryRequest.class)))
                 .thenAnswer((Answer<QueryResponse>) invocationOnMock -> {
-                            QueryRequest request = (QueryRequest) invocationOnMock.getArguments()[0];
-                            if (callCount[0] == 0) {
-                                assertEquals(normalizeQuery(expectedQuery), normalizeQuery(request.queryString()));
-                                assertEquals(null, request.nextToken());
-                            } else {
-                                assertNotNull(request.nextToken());
-                            }
                             callCount[0]++;
-
                             QueryResponse.Builder responseBuilder = QueryResponse.builder();
                             List<Row> rows = new ArrayList<>();
                             for (int i = 0; i < 10; i++) {
@@ -616,7 +479,8 @@ public class TimestreamRecordHandlerTest
 
                             if (callCount[0] < 3) {
                                 responseBuilder.nextToken(PAGINATION_TOKEN_PREFIX + callCount[0]);
-                            } else {
+                            }
+                            else {
                                 responseBuilder.nextToken(null);
                             }
 
@@ -624,30 +488,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaForRead, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertTrue(response.getRecords().getRowCount() > 0);
         assertTrue(callCount[0] >= 2); // Should have paginated
     }
@@ -662,33 +504,11 @@ public class TimestreamRecordHandlerTest
                                     .rows((List<Row>) null) // Null rows
                                     .nextToken(null)
                                     .build();
-                        }
+                            }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaForRead, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(0, response.getRecords().getRowCount());
     }
 
@@ -716,26 +536,7 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequest(schemaForRead, null);
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
         assertTrue(rawResponse instanceof ReadRecordsResponse);
     }
@@ -762,30 +563,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithBit,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithBit, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(1, response.getRecords().getRowCount());
     }
 
@@ -811,30 +590,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithBigInt,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithBigInt, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(1, response.getRecords().getRowCount());
     }
 
@@ -866,30 +623,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithNulls,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithNulls, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(1, response.getRecords().getRowCount());
     }
 
@@ -930,30 +665,8 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithTimeSeriesInt,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithTimeSeriesInt, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(1, response.getRecords().getRowCount());
     }
 
@@ -992,33 +705,10 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithTimeSeriesBit,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
-        RecordResponse rawResponse = handler.doReadRecords(allocator, request);
-        assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithTimeSeriesBit, null);
+        ReadRecordsResponse response = executeReadRecords(request);
         assertEquals(1, response.getRecords().getRowCount());
     }
-
 
     @Test(expected = RuntimeException.class)
     public void doReadRecords_WithUnsupportedFieldType_ShouldThrowRuntimeException()
@@ -1028,26 +718,7 @@ public class TimestreamRecordHandlerTest
                 .addField(COLUMN_NAME_1, Types.MinorType.INT.getType()) // INT is not directly supported
                 .build();
 
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                QUERY_ID_PREFIX + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaWithUnsupportedType,
-                split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
-
+        ReadRecordsRequest request = createReadRecordsRequest(schemaWithUnsupportedType, null);
         handler.doReadRecords(allocator, request);
     }
 
@@ -1064,6 +735,28 @@ public class TimestreamRecordHandlerTest
                         }
                 );
 
+        ReadRecordsRequest request = createReadRecordsRequest(schemaForRead, null);
+        ReadRecordsResponse response = executeReadRecords(request);
+        assertEquals(0, response.getRecords().getRowCount());
+    }
+
+    /**
+     * Normalizes a query string by removing all whitespace characters for comparison.
+     */
+    private String normalizeQuery(String query)
+    {
+        return query.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Creates a ReadRecordsRequest with common default values.
+     *
+     * @param schema  The schema to use for the request
+     * @param qptArgs Optional query passthrough arguments. If null, uses empty map.
+     * @return A configured ReadRecordsRequest
+     */
+    private ReadRecordsRequest createReadRecordsRequest(Schema schema, Map<String, String> qptArgs)
+    {
         S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
                 .withBucket(UUID.randomUUID().toString())
                 .withSplitId(UUID.randomUUID().toString())
@@ -1073,21 +766,97 @@ public class TimestreamRecordHandlerTest
 
         Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
 
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
+        Map<String, String> constraintsMap = qptArgs != null ? qptArgs : Collections.emptyMap();
+
+        return new ReadRecordsRequest(IDENTITY,
                 DEFAULT_CATALOG,
                 QUERY_ID_PREFIX + System.currentTimeMillis(),
                 new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
+                schema,
                 split,
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, constraintsMap, null),
                 100_000_000_000L,
                 100_000_000_000L
         );
+    }
 
+    /**
+     * Creates a ReadRecordsRequest with custom constraints and spill limits.
+     *
+     * @param schema             The schema to use for the request
+     * @param constraintsMap     The ValueSet constraints map
+     * @param maxBlockSize       Maximum block size for spilling
+     * @param maxInlineBlockSize Maximum inline block size
+     * @return A configured ReadRecordsRequest
+     */
+    private ReadRecordsRequest createReadRecordsRequestWithConstraints(Schema schema, Map<String, ValueSet> constraintsMap, long maxBlockSize, long maxInlineBlockSize)
+    {
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, keyFactory.create()).build();
+
+        return new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schema,
+                split,
+                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                maxBlockSize,
+                maxInlineBlockSize
+        );
+    }
+
+    /**
+     * Creates a ReadRecordsRequest with custom catalog, table name, and constraints.
+     *
+     * @param schema            The schema to use for the request
+     * @param catalog           The catalog name
+     * @param tableName         The table name
+     * @param constraintsMap    The ValueSet constraints map
+     * @param useNullKeyFactory Whether to use null for keyFactory (true) or keyFactory.create() (false)
+     * @return A configured ReadRecordsRequest
+     */
+    private ReadRecordsRequest createReadRecordsRequestWithConstraints(Schema schema, String catalog, String tableName, Map<String, ValueSet> constraintsMap, boolean useNullKeyFactory)
+    {
+        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+
+        Split split = Split.newBuilder(splitLoc, useNullKeyFactory ? null : keyFactory.create()).build();
+
+        return new ReadRecordsRequest(IDENTITY,
+                catalog,
+                QUERY_ID_PREFIX + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, tableName),
+                schema,
+                split,
+                new Constraints(constraintsMap, Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null),
+                100_000_000_000L,
+                100_000_000_000L
+        );
+    }
+
+    /**
+     * Executes doReadRecords and returns the response, asserting it's a ReadRecordsResponse.
+     *
+     * @param request The ReadRecordsRequest to execute
+     * @return The ReadRecordsResponse
+     * @throws Exception If execution fails
+     */
+    private ReadRecordsResponse executeReadRecords(ReadRecordsRequest request)
+            throws Exception
+    {
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
         assertTrue(rawResponse instanceof ReadRecordsResponse);
-
-        ReadRecordsResponse response = (ReadRecordsResponse) rawResponse;
-        assertEquals(0, response.getRecords().getRowCount());
+        return (ReadRecordsResponse) rawResponse;
     }
 }

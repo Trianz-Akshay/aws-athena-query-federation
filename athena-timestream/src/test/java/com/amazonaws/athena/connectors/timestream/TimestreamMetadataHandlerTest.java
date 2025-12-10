@@ -574,7 +574,7 @@ public class TimestreamMetadataHandlerTest
                 null, 10); // Limited page size
         ListTablesResponse res = handler.doListTables(allocator, req);
 
-        assertTrue(res.getTables().size() > 0);
+        assertEquals(1, res.getTables().size());
         assertNotNull(res.getNextToken());
     }
 

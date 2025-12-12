@@ -307,8 +307,6 @@ public class TPCDSMetadataHandlerTest
     @Test
     public void doGetSplits_withQueryPassthrough_returnsSplits()
     {
-        Block partitions = createPartitionsBlock();
-
         Map<String, String> qptArguments = createQptArguments();
 
         Constraints constraints = new Constraints(
@@ -320,11 +318,9 @@ public class TPCDSMetadataHandlerTest
                 null);
 
         GetSplitsRequest req = createGetSplitsRequest(
-                TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS1, TEST_TABLE_CUSTOMER),
-                partitions,
-                constraints,
-                null);
+                constraints
+        );
 
         GetSplitsResponse response = handler.doGetSplits(allocator, req);
 
@@ -337,14 +333,10 @@ public class TPCDSMetadataHandlerTest
     @Test
     public void doGetSplits_withContinuationTokenAndLargeScaleFactor_returnsSplitsFromToken()
     {
-        Block partitions = createPartitionsBlock();
-
         GetSplitsRequest originalReq = createGetSplitsRequest(
-                TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS1000, TEST_TABLE_CUSTOMER),
-                partitions,
-                createEmptyConstraints(),
-                null);
+                createEmptyConstraints()
+        );
 
         String continuationToken = CONTINUATION_TOKEN_5;
         GetSplitsRequest req = new GetSplitsRequest(originalReq, continuationToken);
@@ -411,16 +403,11 @@ public class TPCDSMetadataHandlerTest
     public void doGetSplits_withDifferentScaleFactors_returnsSplitsWithCorrectScaleFactor()
     {
         String[] schemas = {TEST_SCHEMA_TPCDS1, TEST_SCHEMA_TPCDS10, TEST_SCHEMA_TPCDS100, TEST_SCHEMA_TPCDS250};
-
         for (String schema : schemas) {
-            Block partitions = createPartitionsBlock();
-
             GetSplitsRequest req = createGetSplitsRequest(
-                    TEST_CATALOG_NAME_ALT,
                     new TableName(schema, TEST_TABLE_CUSTOMER),
-                    partitions,
-                    createEmptyConstraints(),
-                    null);
+                    createEmptyConstraints()
+            );
 
             GetSplitsResponse response = handler.doGetSplits(allocator, req);
 
@@ -437,14 +424,10 @@ public class TPCDSMetadataHandlerTest
     @Test
     public void doGetSplits_withContinuationToken_returnsSplits()
     {
-        Block partitions = createPartitionsBlock();
-
         GetSplitsRequest originalReq = createGetSplitsRequest(
-                TEST_CATALOG_NAME_ALT,
                 new TableName(TEST_SCHEMA_TPCDS250, TEST_TABLE_CUSTOMER),
-                partitions,
-                createEmptyConstraints(),
-                null);
+                createEmptyConstraints()
+        );
 
         String continuationToken = null;
 
@@ -491,15 +474,15 @@ public class TPCDSMetadataHandlerTest
         return qptArguments;
     }
 
-    private GetSplitsRequest createGetSplitsRequest(String catalogName, TableName tableName, Block partitions, Constraints constraints, String continuationToken)
+    private GetSplitsRequest createGetSplitsRequest(TableName tableName, Constraints constraints)
     {
         return new GetSplitsRequest(identity,
                 TEST_QUERY_ID,
-                catalogName,
+                TEST_CATALOG_NAME_ALT,
                 tableName,
-                partitions,
+                createPartitionsBlock(),
                 Collections.EMPTY_LIST,
                 constraints,
-                continuationToken);
+                null);
     }
 }

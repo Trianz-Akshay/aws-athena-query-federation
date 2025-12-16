@@ -1,4 +1,4 @@
-// NOTE: This template is not used in production code - kept for StringTemplate file structure
+
 test_template() ::= <%
     test template for validating file is accessible.
 %>

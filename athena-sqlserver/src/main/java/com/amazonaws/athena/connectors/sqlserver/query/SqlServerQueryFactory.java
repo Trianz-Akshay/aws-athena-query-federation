@@ -37,7 +37,6 @@ public class SqlServerQueryFactory extends BaseQueryFactory
     public SqlServerQueryFactory(String quoteChar)
     {
         super(TEMPLATE_FILE, quoteChar);
-        logger.debug("SqlServerQueryFactory initialized with quoteChar: {}", quoteChar);
     }
 
     @Override
@@ -53,9 +52,6 @@ public class SqlServerQueryFactory extends BaseQueryFactory
     @Override
     public SqlServerQueryBuilder createQueryBuilder()
     {
-        logger.debug("createQueryBuilder - Creating SQL Server-specific query builder");
-        SqlServerQueryBuilder builder = new SqlServerQueryBuilder(getQueryTemplate("select_query"), getQuoteChar());
-        logger.debug("createQueryBuilder - Created SqlServerQueryBuilder instance");
-        return builder;
+        return new SqlServerQueryBuilder(getQueryTemplate("select_query"), getQuoteChar());
     }
 }

@@ -22,7 +22,6 @@ package com.amazonaws.athena.connectors.mysql.query;
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
-import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.query.BaseQueryBuilder;
 import com.amazonaws.athena.connectors.mysql.MySqlFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -32,7 +31,6 @@ import org.stringtemplate.v4.ST;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -40,7 +38,6 @@ import java.util.stream.Collectors;
  * Similar to the pattern used in getPartitionWhereClauses for consistent SQL generation.
  * MySQL uses PARTITION(partition_name) syntax in FROM clause instead of WHERE clause.
  * <p>
- * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
 public class MySqlQueryBuilder extends BaseQueryBuilder
 {
@@ -53,7 +50,6 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
         super(template, quoteChar);
         this.predicateBuilder = new MySqlPredicateBuilder(quoteChar);
         this.federationExpressionParser = new MySqlFederationExpressionParser(quoteChar);
-        logger.debug("MySqlQueryBuilder - Initialized with quoteChar: {}", quoteChar);
     }
 
     /**
@@ -64,9 +60,6 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     protected List<String> buildPartitionWhereClauses(Split split)
     {
-        logger.debug("buildPartitionWhereClauses - Building MySQL partition clauses for split with {} properties",
-                split.getProperties().size());
-
         // MySQL uses PARTITION(partition_name) syntax in FROM clause, not WHERE clause
         // So we return empty list for WHERE clauses
         return Collections.emptyList();
@@ -79,20 +72,16 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     public MySqlQueryBuilder withConjuncts(org.apache.arrow.vector.types.pojo.Schema schema, Constraints constraints)
     {
-        logger.debug("withConjuncts - Building conjuncts for schema with {} fields", schema.getFields().size());
         this.conjuncts = buildConjuncts(schema.getFields(), constraints, this.parameterValues);
 
         // Add MySQL-specific partition clauses if split is available
         if (getCurrentSplit() != null) {
             List<String> partitionClauses = buildPartitionWhereClauses(getCurrentSplit());
             if (!partitionClauses.isEmpty()) {
-                logger.debug("withConjuncts - Adding {} partition clauses", partitionClauses.size());
                 this.conjuncts.addAll(partitionClauses);
             }
         }
 
-        logger.debug("withConjuncts - Generated {} conjuncts with {} parameter values",
-                this.conjuncts.size(), this.parameterValues.size());
         return this;
     }
 
@@ -103,9 +92,7 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     public MySqlQueryBuilder withOrderByClause(Constraints constraints)
     {
-        logger.debug("withOrderByClause - Building MySQL-specific ORDER BY clause");
         this.orderByClause = extractMySqlOrderByClause(constraints);
-        logger.debug("withOrderByClause - Generated ORDER BY clause: {}", this.orderByClause);
         return this;
     }
 
@@ -116,7 +103,6 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     public MySqlQueryBuilder withTableName(com.amazonaws.athena.connector.lambda.domain.TableName tableName)
     {
-        logger.debug("withTableName - Setting table name: {}.{}", tableName.getSchemaName(), tableName.getTableName());
         this.schemaName = tableName.getSchemaName();
         this.tableName = tableName.getTableName();
         return this;
@@ -129,7 +115,6 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     public MySqlQueryBuilder withCatalogName(String catalogName)
     {
-        logger.debug("withCatalogName - Setting catalog name: {}", catalogName);
         // Set to null if catalog name is empty or null to avoid SQL syntax errors
         this.catalogName = (catalogName == null || catalogName.trim().isEmpty()) ? null : catalogName;
         return this;
@@ -142,14 +127,8 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     public String build()
     {
-        logger.debug("build - Building MySQL query with schema: {}, table: {}, conjuncts: {}, projection: {}",
-                schemaName, tableName, conjuncts != null ? conjuncts.size() : 0, projection != null ? projection.size() : 0);
-
         String baseQuery = super.build();
-        String result = applyMySqlFromClausePartition(baseQuery);
-
-        logger.debug("build - Generated MySQL query: {}", result);
-        return result;
+        return applyMySqlFromClausePartition(baseQuery);
     }
 
     /**
@@ -158,28 +137,7 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     @Override
     protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues)
     {
-        logger.debug("buildConjuncts - Building MySQL conjuncts for {} fields", fields.size());
-
-        // Debug the constraints
-        if (constraints.getSummary() != null) {
-            logger.debug("buildConjuncts - Constraints summary has {} entries", constraints.getSummary().size());
-            for (Map.Entry<String, ValueSet> entry : constraints.getSummary().entrySet()) {
-                logger.debug("buildConjuncts - Constraint for column '{}': {}", entry.getKey(), entry.getValue());
-            }
-        }
-        else {
-            logger.debug("buildConjuncts - No constraints summary");
-        }
-
-        List<String> conjuncts = predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
-        logger.debug("buildConjuncts - Generated {} MySQL conjuncts", conjuncts.size());
-
-        // Debug the generated conjuncts
-        for (int i = 0; i < conjuncts.size(); i++) {
-            logger.debug("buildConjuncts - Conjunct {}: {}", i, conjuncts.get(i));
-        }
-
-        return conjuncts;
+        return predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
     }
 
     /**
@@ -188,19 +146,15 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
      */
     private String extractMySqlOrderByClause(Constraints constraints)
     {
-        logger.debug("extractMySqlOrderByClause - Extracting MySQL ORDER BY clause from constraints");
         List<OrderByField> orderByClause = constraints.getOrderByClause();
         if (orderByClause == null || orderByClause.isEmpty()) {
-            logger.debug("extractMySqlOrderByClause - No ORDER BY clause found");
             return "";
         }
 
-        String result = "ORDER BY " + orderByClause.stream()
+        return  "ORDER BY " + orderByClause.stream()
                 .flatMap(orderByField -> {
                     String ordering = orderByField.getDirection().isAscending() ? "ASC" : "DESC";
                     String columnSorting = String.format("%s %s", quote(orderByField.getColumnName()), ordering);
-                    logger.debug("extractMySqlOrderByClause - Processing orderByField: {} with direction: {}",
-                            orderByField.getColumnName(), orderByField.getDirection());
 
                     switch (orderByField.getDirection()) {
                         case ASC_NULLS_FIRST:
@@ -208,23 +162,17 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
                             logger.debug("extractMySqlOrderByClause - ASC_NULLS_FIRST: {}", columnSorting);
                         case DESC_NULLS_LAST:
                             // In MySQL DESC implies NULLS LAST
-                            logger.debug("extractMySqlOrderByClause - DESC_NULLS_LAST: {}", columnSorting);
                             return java.util.stream.Stream.of(columnSorting);
                         case ASC_NULLS_LAST:
                             String ascNullsLast = String.format("ISNULL(%s) ASC", quote(orderByField.getColumnName()));
-                            logger.debug("extractMySqlOrderByClause - ASC_NULLS_LAST: {} + {}", ascNullsLast, columnSorting);
                             return java.util.stream.Stream.of(ascNullsLast, columnSorting);
                         case DESC_NULLS_FIRST:
                             String descNullsFirst = String.format("ISNULL(%s) DESC", quote(orderByField.getColumnName()));
-                            logger.debug("extractMySqlOrderByClause - DESC_NULLS_FIRST: {} + {}", descNullsFirst, columnSorting);
                             return java.util.stream.Stream.of(descNullsFirst, columnSorting);
                     }
                     throw new UnsupportedOperationException("Unsupported sort order: " + orderByField.getDirection());
                 })
                 .collect(Collectors.joining(", "));
-
-        logger.debug("extractMySqlOrderByClause - Generated MySQL ORDER BY clause: {}", result);
-        return result;
     }
 
     /**
@@ -235,15 +183,12 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
     private String applyMySqlFromClausePartition(String baseQuery)
     {
         if (getCurrentSplit() == null) {
-            logger.debug("applyMySqlFromClausePartition - No split available, returning base query");
             return baseQuery;
         }
 
         String partitionName = getCurrentSplit().getProperty("partition_name");
-        logger.debug("applyMySqlFromClausePartition - partition_name: {}", partitionName);
 
         if (partitionName == null || "*".equals(partitionName)) {
-            logger.debug("applyMySqlFromClausePartition - No specific partition or ALL_PARTITIONS, returning base query");
             return baseQuery;
         }
 
@@ -272,13 +217,6 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
                     quote(tableName), partitionName);
         }
 
-        logger.info("applyMySqlFromClausePartition - Applying partition: {}", partitionName);
-        logger.debug("applyMySqlFromClausePartition - Looking for FROM clause: {}", expectedFromClause);
-        logger.debug("applyMySqlFromClausePartition - Replacing with: {}", fromClauseWithPartition);
-
-        String modifiedQuery = baseQuery.replace(expectedFromClause, fromClauseWithPartition);
-
-        logger.debug("applyMySqlFromClausePartition - Modified query: {}", modifiedQuery);
-        return modifiedQuery;
+        return baseQuery.replace(expectedFromClause, fromClauseWithPartition);
     }
 } 

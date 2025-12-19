@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,7 +43,7 @@ public abstract class BaseQueryFactory
 {
     protected static final Logger logger = LoggerFactory.getLogger(BaseQueryFactory.class);
     protected static final String TEST_TEMPLATE = "test_template";
-    
+
     private final String templateFile;
     private final String localTemplateFile;
     private volatile boolean useLocalFallback = false;
@@ -54,7 +54,6 @@ public abstract class BaseQueryFactory
         this.templateFile = templateFile;
         this.localTemplateFile = "/tmp/" + templateFile;
         this.quoteChar = quoteChar;
-        logger.debug("BaseQueryFactory initialized with templateFile: {} and quoteChar: {}", templateFile, quoteChar);
     }
 
     /**
@@ -63,22 +62,17 @@ public abstract class BaseQueryFactory
      */
     protected STGroupFile createGroupFile()
     {
-        logger.debug("createGroupFile - Creating STGroupFile from: {}", templateFile);
-        
         if (!useLocalFallback) {
             try {
                 STGroupFile stGroupFile = new STGroupFile(templateFile);
                 requireNonNull(stGroupFile.getInstanceOf(TEST_TEMPLATE), "Test template must not be null");
-                logger.debug("createGroupFile - Successfully created STGroupFile from: {}", templateFile);
                 return stGroupFile;
             }
             catch (RuntimeException ex) {
-                logger.info("createGroupFile: Error while attempting to load STGroupFile from: {}. Falling back to local file.", templateFile, ex);
                 return createLocalGroupFile();
             }
         }
 
-        logger.debug("createGroupFile - Using local fallback file: {}", localTemplateFile);
         STGroupFile stGroupFile = new STGroupFile(localTemplateFile);
         requireNonNull(stGroupFile.getInstanceOf(TEST_TEMPLATE), "Test template must not be null");
         return stGroupFile;
@@ -90,13 +84,11 @@ public abstract class BaseQueryFactory
      */
     private STGroupFile createLocalGroupFile()
     {
-        logger.info("createLocalGroupFile: Attempting STGroupFile fallback to: {}", localTemplateFile);
         InputStream in = this.getClass().getClassLoader().getResourceAsStream(templateFile);
         if (in == null) {
-            logger.error("createLocalGroupFile: Could not find template file in classpath: {}", templateFile);
             throw new RuntimeException("Template file not found: " + templateFile);
         }
-        
+
         BufferedReader reader = new BufferedReader(new InputStreamReader(in));
         StringBuilder sb = new StringBuilder();
         try {
@@ -112,19 +104,15 @@ public abstract class BaseQueryFactory
             BufferedWriter writer = new BufferedWriter(new FileWriter(localTemplateFile));
             writer.write(sb.toString());
             writer.close();
-            logger.debug("createLocalGroupFile: Successfully wrote template to local file: {}", localTemplateFile);
         }
         catch (IOException ex) {
-            logger.error("createLocalGroupFile: Exception while creating local template file: {}", localTemplateFile, ex);
             throw new RuntimeException("Failed to create local template file", ex);
         }
 
         useLocalFallback = true;
-        logger.info("createLocalGroupFile: Template content length: {} characters", sb.length());
 
         STGroupFile stGroupFile = new STGroupFile(localTemplateFile);
         requireNonNull(stGroupFile.getInstanceOf(TEST_TEMPLATE), "Test template must not be null");
-        logger.debug("createLocalGroupFile: Successfully created STGroupFile from local file");
         return stGroupFile;
     }
 
@@ -134,13 +122,10 @@ public abstract class BaseQueryFactory
      */
     public ST getQueryTemplate(String templateName)
     {
-        logger.debug("getQueryTemplate - Retrieving template: {} from file: {}", templateName, templateFile);
         ST template = createGroupFile().getInstanceOf(templateName);
         if (template == null) {
-            logger.error("getQueryTemplate: Template not found: {} in file: {}", templateName, templateFile);
             throw new RuntimeException("Template not found: " + templateName);
         }
-        logger.debug("getQueryTemplate - Successfully retrieved template: {}", templateName);
         return template;
     }
 
@@ -157,7 +142,6 @@ public abstract class BaseQueryFactory
      */
     protected String getQuoteChar()
     {
-        logger.debug("getQuoteChar - Returning quote character: {}", quoteChar);
         return quoteChar;
     }
 

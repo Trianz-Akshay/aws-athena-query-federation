@@ -44,7 +44,7 @@ public abstract class BaseQueryBuilder
     private static final Logger logger = LoggerFactory.getLogger(BaseQueryBuilder.class);
     protected static final String TEMPLATE_NAME = "select_query";
     protected static final String TEMPLATE_FIELD = "builder";
-    
+
     protected final ST query;
     protected List<String> projection;
     protected String catalogName;
@@ -62,7 +62,6 @@ public abstract class BaseQueryBuilder
         this.query = Validate.notNull(template, "The StringTemplate for " + TEMPLATE_NAME + " can not be null!");
         this.quoteChar = Validate.notNull(quoteChar, "quoteChar can not be null!");
         this.parameterValues = new ArrayList<>();
-        logger.debug("BaseQueryBuilder initialized with quoteChar: {}", quoteChar);
     }
 
     public static String getTemplateName()
@@ -76,15 +75,11 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withProjection(Schema schema, Split split)
     {
-        logger.debug("withProjection - Building projection for schema with {} fields, split properties: {}", 
-            schema.getFields().size(), split.getProperties().keySet());
-        
         this.projection = schema.getFields().stream()
                 .map(Field::getName)
                 .filter(c -> !split.getProperties().containsKey(c))
                 .collect(Collectors.toList());
-        
-        logger.debug("withProjection - Generated projection with {} columns", this.projection.size());
+
         return this;
     }
 
@@ -94,7 +89,6 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withTableName(TableName tableName)
     {
-        logger.debug("withTableName - Setting table name: {}.{}", tableName.getSchemaName(), tableName.getTableName());
         this.schemaName = tableName.getSchemaName();
         this.tableName = tableName.getTableName();
         return this;
@@ -106,7 +100,6 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withSplit(Split split)
     {
-        logger.debug("withSplit - Setting split with {} properties", split.getProperties().size());
         this.currentSplit = split;
         return this;
     }
@@ -117,7 +110,6 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withCatalogName(String catalogName)
     {
-        logger.debug("withCatalogName - Setting catalog name: {}", catalogName);
         // Set to null if catalog name is empty or null to avoid SQL syntax errors
         this.catalogName = (catalogName == null || catalogName.trim().isEmpty()) ? null : catalogName;
         return this;
@@ -129,20 +121,15 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withConjuncts(Schema schema, Constraints constraints)
     {
-        logger.debug("withConjuncts - Building conjuncts for schema with {} fields", schema.getFields().size());
         this.conjuncts = buildConjuncts(schema.getFields(), constraints, this.parameterValues);
 
         // Add database-specific partition clauses if split is available
         if (currentSplit != null) {
             List<String> partitionClauses = buildPartitionWhereClauses(currentSplit);
             if (!partitionClauses.isEmpty()) {
-                logger.debug("withConjuncts - Adding {} partition clauses", partitionClauses.size());
                 this.conjuncts.addAll(partitionClauses);
             }
         }
-
-        logger.debug("withConjuncts - Generated {} conjuncts with {} parameter values", 
-            this.conjuncts.size(), this.parameterValues.size());
         return this;
     }
 
@@ -152,9 +139,7 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withOrderByClause(Constraints constraints)
     {
-        logger.debug("withOrderByClause - Building ORDER BY clause");
         this.orderByClause = extractOrderByClause(constraints);
-        logger.debug("withOrderByClause - Generated ORDER BY clause: {}", this.orderByClause);
         return this;
     }
 
@@ -164,13 +149,8 @@ public abstract class BaseQueryBuilder
      */
     public BaseQueryBuilder withLimitClause(Constraints constraints)
     {
-        logger.debug("withLimitClause - Building LIMIT clause with limit: {}", constraints.getLimit());
         if (constraints.getLimit() > 0) {
             this.limitClause = buildLimitClause(constraints.getLimit());
-            logger.debug("withLimitClause - Generated LIMIT clause: {}", this.limitClause);
-        }
-        else {
-            logger.debug("withLimitClause - No limit specified, skipping LIMIT clause");
         }
         return this;
     }
@@ -222,19 +202,13 @@ public abstract class BaseQueryBuilder
      */
     public String build()
     {
-        logger.debug("build - Building query with schema: {}, table: {}, conjuncts: {}, projection: {}", 
-            schemaName, tableName, conjuncts != null ? conjuncts.size() : 0, projection != null ? projection.size() : 0);
-        
         Validate.notNull(schemaName, "schemaName can not be null.");
         Validate.notNull(tableName, "tableName can not be null.");
         Validate.notNull(projection, "projection can not be null.");
 
         query.add(TEMPLATE_FIELD, this);
         query.add("quoteChar", quoteChar);
-        String result = query.render().trim();
-        
-        logger.debug("build - Generated query: {}", result);
-        return result;
+        return query.render().trim();
     }
 
     /**
@@ -258,7 +232,6 @@ public abstract class BaseQueryBuilder
      */
     protected String buildLimitClause(long limit)
     {
-        logger.debug("buildLimitClause - Building standard LIMIT clause with limit: {}", limit);
         return "LIMIT " + limit;
     }
 
@@ -268,10 +241,7 @@ public abstract class BaseQueryBuilder
      */
     protected String quote(String identifier)
     {
-        logger.debug("quote - Quoting identifier: {} with quoteChar: {}", identifier, quoteChar);
-        String quoted = quoteChar + identifier + quoteChar;
-        logger.debug("quote - Quoted result: {}", quoted);
-        return quoted;
+        return quoteChar + identifier + quoteChar;
     }
 
     /**
@@ -291,24 +261,17 @@ public abstract class BaseQueryBuilder
      */
     private String extractOrderByClause(Constraints constraints)
     {
-        logger.debug("extractOrderByClause - Extracting ORDER BY clause from constraints");
         List<OrderByField> orderByClause = constraints.getOrderByClause();
         if (orderByClause == null || orderByClause.isEmpty()) {
-            logger.debug("extractOrderByClause - No ORDER BY clause found");
             return "";
         }
-        
-        String result = "ORDER BY " + orderByClause.stream()
+
+        return "ORDER BY " + orderByClause.stream()
                 .map(orderByField -> {
                     String ordering = orderByField.getDirection().isAscending() ? "ASC" : "DESC";
                     String clause = quote(orderByField.getColumnName()) + " " + ordering;
-                    logger.debug("extractOrderByClause - Processing orderByField: {} -> {}", 
-                        orderByField.getColumnName(), clause);
                     return clause;
                 })
                 .collect(Collectors.joining(", "));
-        
-        logger.debug("extractOrderByClause - Generated ORDER BY clause: {}", result);
-        return result;
     }
 } 

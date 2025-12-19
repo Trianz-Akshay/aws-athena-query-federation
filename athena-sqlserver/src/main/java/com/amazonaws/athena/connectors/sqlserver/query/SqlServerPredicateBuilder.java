@@ -36,8 +36,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * SQL Server-specific predicate builder using refactored common functionality.
  * Converts date values to appropriate SQL Server types.
- * 
- * This refactored version demonstrates how to use the new common classes to reduce code duplication.
+ *
  */
 public class SqlServerPredicateBuilder extends BasePredicateBuilder
 {
@@ -47,7 +46,6 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
     public SqlServerPredicateBuilder(String quoteChar)
     {
         super(new STGroupFile(TEMPLATE_FILE), quoteChar);
-        logger.debug("SqlServerPredicateBuilder initialized with quoteChar: {}", quoteChar);
     }
 
     /**
@@ -61,9 +59,6 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
     @Override
     protected Object convertValueForDatabase(Object value, org.apache.arrow.vector.types.pojo.ArrowType fieldType)
     {
-        logger.debug("convertValueForDatabase - Input value: {} (type: {}), Field type: {}",
-                value, value != null ? value.getClass().getSimpleName() : "null", fieldType);
-        
         if (value == null) {
             return null;
         }
@@ -71,7 +66,6 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
         // Handle Arrow Text objects (convert to String)
         if (value instanceof org.apache.arrow.vector.util.Text) {
             String stringValue = value.toString();
-            logger.debug("convertValueForDatabase - Converted Arrow Text to String: {}", stringValue);
             return stringValue;
         }
 
@@ -91,15 +85,10 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
                 return value;
             }
             else {
-                String stringValue = value.toString();
-                logger.debug("convertValueForDatabase - Converted to String: {}", stringValue);
-                return stringValue;
+                return value.toString();
             }
         }
 
-        // Default case - return as-is
-        logger.debug("convertValueForDatabase - Default case returning as-is: {} (type: {})",
-                value, value.getClass().getSimpleName());
         return value;
     }
 
@@ -125,8 +114,6 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
      */
     private Object convertDateValueForSqlServer(Object value, org.apache.arrow.vector.types.pojo.ArrowType.Date dateType)
     {
-        logger.debug("convertDateValueForSqlServer - Converting date value: {} for SQL Server", value);
-        
         if (value instanceof Date) {
             return value;
         }
@@ -142,10 +129,7 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
             int offset = defaultTimeZone.getOffset(utcMillis);
             utcMillis -= offset;
 
-            Date result = new Date(utcMillis);
-            logger.debug("convertDateValueForSqlServer - Date conversion: {} days -> {} ms -> {} (Date: {})",
-                    days, utcMillis, result, result.toString());
-            return result;
+            return new Date(utcMillis);
         }
         else if (value instanceof LocalDateTime) {
             // For Date(MILLISECOND) type, preserve time portion by using Timestamp
@@ -158,23 +142,16 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
             int offset = defaultTimeZone.getOffset(utcMillis);
             utcMillis -= offset;
 
-            Timestamp result = new Timestamp(utcMillis);
-            logger.debug("convertDateValueForSqlServer - Date(MILLISECOND) conversion from LocalDateTime: {} -> {} ms (offset: {}) -> {} (Timestamp: {})",
-                    localDateTime, utcMillis + offset, offset, result, result.toString());
-            return result;
+            return new Timestamp(utcMillis);
         }
         else if (value instanceof Long) {
             long longValue = (Long) value;
             // SQL Server date conversion logic
-            Date date = new Date(longValue);
-            logger.debug("convertDateValueForSqlServer - Converted long {} to SQL Server date: {}", longValue, date);
-            return date;
+            return new Date(longValue);
         }
         else {
             // For other types, try to convert to string and parse as date
-            String result = String.valueOf(value);
-            logger.debug("convertDateValueForSqlServer - Date conversion to string: {} -> {}", value, result);
-            return result;
+            return String.valueOf(value);
         }
     }
 
@@ -188,8 +165,6 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
      */
     private Object convertTimestampValueForSqlServer(Object value, org.apache.arrow.vector.types.pojo.ArrowType.Timestamp timestampType)
     {
-        logger.debug("convertTimestampValueForSqlServer - Converting timestamp value: {} for SQL Server", value);
-        
         if (value instanceof Timestamp) {
             return value;
         }
@@ -204,10 +179,7 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
             int offset = defaultTimeZone.getOffset(millis);
             millis -= offset;
 
-            Timestamp result = new Timestamp(millis);
-            logger.debug("convertTimestampValueForSqlServer - Timestamp conversion: {} ms -> {} (offset: {}) -> {} (Timestamp: {})",
-                    millis + offset, millis, offset, result, result.toString());
-            return result;
+            return new Timestamp(millis);
         }
         else if (value instanceof LocalDateTime) {
             // Convert LocalDateTime to Timestamp
@@ -219,23 +191,16 @@ public class SqlServerPredicateBuilder extends BasePredicateBuilder
             int offset = defaultTimeZone.getOffset(utcMillis);
             utcMillis -= offset;
 
-            Timestamp result = new Timestamp(utcMillis);
-            logger.debug("convertTimestampValueForSqlServer - Timestamp conversion from LocalDateTime: {} -> {} ms (offset: {}) -> {} (Timestamp: {})",
-                    localDateTime, utcMillis + offset, offset, result, result.toString());
-            return result;
+            return new Timestamp(utcMillis);
         }
         else if (value instanceof Long) {
             long longValue = (Long) value;
             // SQL Server timestamp conversion logic
-            Timestamp timestamp = new Timestamp(longValue);
-            logger.debug("convertTimestampValueForSqlServer - Converted long {} to SQL Server timestamp: {}", longValue, timestamp);
-            return timestamp;
+            return new Timestamp(longValue);
         }
         else {
             // For other types, try to convert to string
-            String result = String.valueOf(value);
-            logger.debug("convertTimestampValueForSqlServer - Timestamp conversion to string: {} -> {}", value, result);
-            return result;
+            return String.valueOf(value);
         }
     }
 }

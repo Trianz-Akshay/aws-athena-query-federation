@@ -83,17 +83,6 @@ like_predicate(columnName, quoteChar) ::= <%
 
 /**
  *@UsedBy: BasePredicateBuilder.java
- *@Description: Template for BETWEEN range predicates.
- *@param columnName The column name with appropriate quoting.
- *@param quoteChar The character to use for quoting identifiers.
- *@return A BETWEEN predicate like `column` BETWEEN ? AND ?
- */
-between_predicate(columnName, quoteChar) ::= <%
-    <quoteChar><columnName><quoteChar> BETWEEN ? AND ?
-%>
-
-/**
- *@UsedBy: BasePredicateBuilder.java
  *@Description: Template for combining multiple predicates with OR.
  *@param disjuncts List of predicates to join with OR.
  *@param wrapInParens Whether to wrap each disjunct in parentheses (default: true).

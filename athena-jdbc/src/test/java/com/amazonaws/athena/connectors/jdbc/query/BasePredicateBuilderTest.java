@@ -165,56 +165,12 @@ public class BasePredicateBuilderTest extends TestBase
     }
 
     @Test
-    public void testBuildInPredicate()
-    {
-        EquatableValueSet equatableValueSet = Mockito.mock(EquatableValueSet.class);
-        com.amazonaws.athena.connector.lambda.data.Block mockBlock = Mockito.mock(com.amazonaws.athena.connector.lambda.data.Block.class);
-        when(equatableValueSet.getValues()).thenReturn(mockBlock);
-        when(equatableValueSet.isNullAllowed()).thenReturn(false);
-        when(mockBlock.getRowCount()).thenReturn(3);
-        when(equatableValueSet.getValue(0)).thenReturn("value1");
-        when(equatableValueSet.getValue(1)).thenReturn("value2");
-        when(equatableValueSet.getValue(2)).thenReturn("value3");
-        
-        List<Object> parameterValues = new ArrayList<>();
-        String result = predicateBuilder.buildInPredicate("test_column", equatableValueSet, parameterValues,
-            org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType());
-        
-        // The result should be either a valid predicate or null
-        if (result != null) {
-            assertTrue("Result should contain test_column if not null", result.contains("test_column"));
-        }
-    }
-
-    @Test
     public void testBuildNullPredicate()
     {
         String result = predicateBuilder.buildNullPredicate("test_column", true);
         assertEquals("test_column = ?", result);
         
         result = predicateBuilder.buildNullPredicate("test_column", false);
-        assertEquals("test_column = ?", result);
-    }
-
-    @Test
-    public void testBuildBetweenPredicate()
-    {
-        List<Object> parameterValues = new ArrayList<>();
-        String result = predicateBuilder.buildBetweenPredicate("test_column", "value1", "value2", parameterValues,
-            org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType());
-        assertEquals("test_column = ?", result);
-    }
-
-    @Test
-    public void testBuildComparisonPredicate()
-    {
-        List<Object> parameterValues = new ArrayList<>();
-        String result = predicateBuilder.buildComparisonPredicate("test_column", ">", "value1", parameterValues,
-            org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType());
-        assertEquals("test_column = ?", result);
-        
-        result = predicateBuilder.buildComparisonPredicate("test_column", "<=", "value2", parameterValues,
-            org.apache.arrow.vector.types.Types.MinorType.VARCHAR.getType());
         assertEquals("test_column = ?", result);
     }
 

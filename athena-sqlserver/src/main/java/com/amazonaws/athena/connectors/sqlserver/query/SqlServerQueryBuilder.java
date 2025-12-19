@@ -35,8 +35,6 @@ import java.util.List;
  * SQL Server-specific query builder using refactored common functionality.
  * Enhanced with SQL Server-specific partition support similar to getPartitionWhereClauses.
  * SQL Server doesn't support LIMIT clause, so we return empty string.
- * 
- * This refactored version demonstrates how to use the new common classes to reduce code duplication.
  */
 public class SqlServerQueryBuilder extends BaseQueryBuilder
 {
@@ -49,7 +47,6 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
         super(template, quoteChar);
         this.predicateBuilder = new SqlServerPredicateBuilder(quoteChar);
         this.federationExpressionParser = new SqlServerFederationExpressionParser(quoteChar);
-        logger.debug("SqlServerQueryBuilder initialized with quoteChar: {}", quoteChar);
     }
 
     /**
@@ -64,19 +61,13 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
         String partitioningColumn = split.getProperty("PARTITIONING_COLUMN");
         String partitionNumber = split.getProperty("partition_number");
 
-        logger.debug("buildPartitionWhereClauses - PARTITION_FUNCTION: {}", partitionFunction);
-        logger.debug("buildPartitionWhereClauses - PARTITIONING_COLUMN: {}", partitioningColumn);
-        logger.debug("buildPartitionWhereClauses - PARTITION_NUMBER: {}", partitionNumber);
 
         if (partitionFunction != null && partitioningColumn != null && partitionNumber != null && !partitionNumber.equals("0")) {
-            logger.info("buildPartitionWhereClauses - Fetching data using Partition");
+
             String partitionClause = String.format(" $PARTITION.%s(%s) = %s",
-                partitionFunction, partitioningColumn, partitionNumber);
-            logger.debug("buildPartitionWhereClauses - Generated partition clause: {}", partitionClause);
+                    partitionFunction, partitioningColumn, partitionNumber);
+
             return Collections.singletonList(partitionClause);
-        }
-        else {
-            logger.info("buildPartitionWhereClauses - Fetching data without Partition");
         }
         return Collections.emptyList();
     }
@@ -88,7 +79,6 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     public SqlServerQueryBuilder withTableName(com.amazonaws.athena.connector.lambda.domain.TableName tableName)
     {
-        logger.debug("withTableName - Setting table name: {}.{}", tableName.getSchemaName(), tableName.getTableName());
         this.schemaName = tableName.getSchemaName();
         this.tableName = tableName.getTableName();
         return this;
@@ -101,20 +91,16 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     public SqlServerQueryBuilder withConjuncts(org.apache.arrow.vector.types.pojo.Schema schema, Constraints constraints)
     {
-        logger.debug("withConjuncts - Building conjuncts for schema with {} fields", schema.getFields().size());
         this.conjuncts = buildConjuncts(schema.getFields(), constraints, this.parameterValues);
 
         // Add SQL Server-specific partition clauses if split is available
         if (getCurrentSplit() != null) {
             List<String> partitionClauses = buildPartitionWhereClauses(getCurrentSplit());
             if (!partitionClauses.isEmpty()) {
-                logger.debug("withConjuncts - Adding {} partition clauses", partitionClauses.size());
                 this.conjuncts.addAll(partitionClauses);
             }
         }
 
-        logger.debug("withConjuncts - Generated {} conjuncts with {} parameter values",
-            this.conjuncts.size(), this.parameterValues.size());
         return this;
     }
 
@@ -126,7 +112,6 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     protected String buildLimitClause(long limit)
     {
-        logger.debug("buildLimitClause - SQL Server doesn't support LIMIT clause, returning empty string");
         // SQL Server doesn't support LIMIT clause, so we return empty string
         return "";
     }
@@ -137,10 +122,7 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues)
     {
-        logger.debug("buildConjuncts - Building SQL Server conjuncts for {} fields", fields.size());
-        List<String> conjuncts = predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
-        logger.debug("buildConjuncts - Generated {} SQL Server conjuncts", conjuncts.size());
-        return conjuncts;
+        return predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
     }
 
     /**
@@ -150,7 +132,6 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     public SqlServerQueryBuilder withCatalogName(String catalogName)
     {
-        logger.debug("withCatalogName - Setting catalog name: {}", catalogName);
         // Set to null if catalog name is empty or null to avoid SQL syntax errors
         this.catalogName = (catalogName == null || catalogName.trim().isEmpty()) ? null : catalogName;
         return this;
@@ -163,11 +144,6 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
     @Override
     public String build()
     {
-        logger.debug("build - Building SQL Server query with schema: {}, table: {}, conjuncts: {}, projection: {}", 
-            schemaName, tableName, conjuncts != null ? conjuncts.size() : 0, projection != null ? projection.size() : 0);
-        
-        String result = super.build();
-        logger.debug("build - Generated SQL Server query: {}", result);
-        return result;
+        return super.build();
     }
 }

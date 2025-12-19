@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -37,7 +37,6 @@ public class MySqlQueryFactory extends BaseQueryFactory
     public MySqlQueryFactory(String quoteChar)
     {
         super(TEMPLATE_FILE, quoteChar);
-        logger.debug("MySqlQueryFactory initialized with quoteChar: {}", quoteChar);
     }
 
     @Override
@@ -53,9 +52,6 @@ public class MySqlQueryFactory extends BaseQueryFactory
     @Override
     public MySqlQueryBuilder createQueryBuilder()
     {
-        logger.debug("createQueryBuilder - Creating MySQL-specific query builder");
-        MySqlQueryBuilder builder = new MySqlQueryBuilder(getQueryTemplate("select_query"), getQuoteChar());
-        logger.debug("createQueryBuilder - Created MySqlQueryBuilder instance");
-        return builder;
+        return new MySqlQueryBuilder(getQueryTemplate("select_query"), getQuoteChar());
     }
 } 

@@ -23,6 +23,7 @@ import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.lang3.Validate;
@@ -53,7 +54,7 @@ public abstract class BaseQueryBuilder
     protected List<String> conjuncts;
     protected String orderByClause;
     protected String limitClause;
-    protected List<Object> parameterValues;
+    protected List<TypeAndValue> parameterValues;
     protected final String quoteChar;
     protected Split currentSplit;
 
@@ -157,7 +158,12 @@ public abstract class BaseQueryBuilder
 
     public List<Object> getParameterValues()
     {
-        return parameterValues;
+        // Convert TypeAndValue list to Object list for backward compatibility
+        List<Object> result = new ArrayList<>();
+        for (TypeAndValue typeAndValue : parameterValues) {
+            result.add(typeAndValue.getValue());
+        }
+        return result;
     }
 
     // Getter methods for StringTemplate access
@@ -207,14 +213,13 @@ public abstract class BaseQueryBuilder
         Validate.notNull(projection, "projection can not be null.");
 
         query.add(TEMPLATE_FIELD, this);
-        query.add("quoteChar", quoteChar);
         return query.render().trim();
     }
 
     /**
      * Build conjuncts for the query. Must be implemented by subclasses.
      */
-    protected abstract List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues);
+    protected abstract List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<TypeAndValue> accumulator);
 
     /**
      * Build database-specific partition WHERE clauses.

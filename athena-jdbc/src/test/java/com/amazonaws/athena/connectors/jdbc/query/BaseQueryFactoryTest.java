@@ -19,6 +19,8 @@
  */
 package com.amazonaws.athena.connectors.jdbc.query;
 
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -105,9 +107,9 @@ public class BaseQueryFactoryTest
         }
 
         @Override
-        protected java.util.List<String> buildConjuncts(java.util.List<org.apache.arrow.vector.types.pojo.Field> fields, 
+        protected java.util.List<String> buildConjuncts(java.util.List<Field> fields, 
                                                        com.amazonaws.athena.connector.lambda.domain.predicate.Constraints constraints, 
-                                                       java.util.List<Object> parameterValues)
+                                                       java.util.List<TypeAndValue> accumulator)
         {
             return java.util.Collections.emptyList();
         }

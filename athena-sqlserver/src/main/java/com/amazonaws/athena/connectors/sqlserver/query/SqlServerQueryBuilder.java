@@ -21,6 +21,7 @@ package com.amazonaws.athena.connectors.sqlserver.query;
 
 import com.amazonaws.athena.connector.lambda.domain.Split;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.amazonaws.athena.connectors.jdbc.query.BaseQueryBuilder;
 import com.amazonaws.athena.connectors.sqlserver.SqlServerFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -120,9 +121,9 @@ public class SqlServerQueryBuilder extends BaseQueryBuilder
      * Build conjuncts using the refactored predicate builder.
      */
     @Override
-    protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues)
+    protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<TypeAndValue> accumulator)
     {
-        return predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
+        return predicateBuilder.buildConjuncts(fields, constraints, accumulator);
     }
 
     /**

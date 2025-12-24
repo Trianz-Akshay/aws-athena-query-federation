@@ -23,6 +23,7 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.TestBase;
 import com.amazonaws.athena.connectors.jdbc.manager.FederationExpressionParser;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.Before;
 import org.junit.Test;
@@ -73,9 +74,9 @@ public class SqlServerPredicateBuilderTest extends TestBase
         );
         Constraints constraints = mock(Constraints.class);
         when(constraints.getSummary()).thenReturn(Collections.emptyMap());
-        List<Object> parameterValues = new ArrayList<>();
+        List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> result = predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
+        List<String> result = predicateBuilder.buildConjuncts(fields, constraints, accumulator);
 
         assertNotNull(result);
         assertTrue(result.isEmpty()); // No constraints, so no conjuncts
@@ -97,9 +98,9 @@ public class SqlServerPredicateBuilderTest extends TestBase
         summary.put("id", valueSet);
         when(constraints.getSummary()).thenReturn(summary);
         
-        List<Object> parameterValues = new ArrayList<>();
+        List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> result = predicateBuilder.buildConjuncts(fields, constraints, parameterValues);
+        List<String> result = predicateBuilder.buildConjuncts(fields, constraints, accumulator);
 
         assertNotNull(result);
     }

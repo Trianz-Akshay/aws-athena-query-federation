@@ -24,6 +24,7 @@ import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
 import com.amazonaws.athena.connectors.jdbc.TestBase;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Before;
@@ -202,7 +203,7 @@ public class BaseQueryBuilderTest extends TestBase
         }
 
         @Override
-        protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<Object> parameterValues)
+        protected List<String> buildConjuncts(List<Field> fields, Constraints constraints, List<TypeAndValue> accumulator)
         {
             return Collections.emptyList();
         }

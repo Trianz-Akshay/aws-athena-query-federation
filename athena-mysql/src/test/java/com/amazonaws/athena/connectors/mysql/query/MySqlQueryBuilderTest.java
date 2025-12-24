@@ -24,6 +24,7 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.TestBase;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Before;
@@ -167,9 +168,9 @@ public class MySqlQueryBuilderTest extends TestBase
         );
         Constraints constraints = mock(Constraints.class);
         when(constraints.getSummary()).thenReturn(Collections.emptyMap());
-        List<Object> parameterValues = new ArrayList<>();
+        List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> result = queryBuilder.buildConjuncts(fields, constraints, parameterValues);
+        List<String> result = queryBuilder.buildConjuncts(fields, constraints, accumulator);
 
         assertNotNull(result);
         assertTrue(result.isEmpty()); // No constraints, so no conjuncts
@@ -191,9 +192,9 @@ public class MySqlQueryBuilderTest extends TestBase
         summary.put("id", valueSet);
         when(constraints.getSummary()).thenReturn(summary);
         
-        List<Object> parameterValues = new ArrayList<>();
+        List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> result = queryBuilder.buildConjuncts(fields, constraints, parameterValues);
+        List<String> result = queryBuilder.buildConjuncts(fields, constraints, accumulator);
 
         assertNotNull(result);
     }

@@ -193,31 +193,36 @@ public class MySqlQueryBuilder extends BaseQueryBuilder
             return baseQuery;
         }
 
-        // The StringTemplate generates: FROM `schema`.`table`
-        // We need to replace it with: FROM `schema`.`table` PARTITION(partition_name)
+        // The StringTemplate generates: from `schema`.`table` (lowercase "from")
+        // We need to replace it with: from `schema`.`table` PARTITION(partition_name)
 
         // Build the expected FROM clause pattern that StringTemplate generates
-        // StringTemplate generates: FROM `schema`.`table` (no trailing space)
-        String expectedFromClause;
+        // StringTemplate generates: from `schema`.`table` (lowercase, with space before "from")
+        String quotedSchema = quote(schemaName);
+        String quotedTable = quote(tableName);
+        
+        // Build regex pattern to match: " from `schema`.`table`" (case-insensitive)
+        // The pattern should match the space before "from" and the quoted schema.table
+        String pattern;
+        String replacement;
+        
         if (schemaName != null && !schemaName.trim().isEmpty()) {
-            expectedFromClause = String.format(" FROM %s.%s",
-                    quote(schemaName), quote(tableName));
+            // Pattern: space + "from" (case-insensitive) + space + quoted schema + dot + quoted table
+            pattern = String.format("\\s+from\\s+%s\\.%s(?!\\s+PARTITION)",
+                    java.util.regex.Pattern.quote(quotedSchema),
+                    java.util.regex.Pattern.quote(quotedTable));
+            replacement = String.format(" from %s.%s PARTITION(%s)",
+                    quotedSchema, quotedTable, partitionName);
         }
         else {
-            expectedFromClause = String.format(" FROM %s", quote(tableName));
+            // Pattern: space + "from" (case-insensitive) + space + quoted table
+            pattern = String.format("\\s+from\\s+%s(?!\\s+PARTITION)",
+                    java.util.regex.Pattern.quote(quotedTable));
+            replacement = String.format(" from %s PARTITION(%s)",
+                    quotedTable, partitionName);
         }
 
-        // Build the FROM clause with partition - add PARTITION clause after the table name
-        String fromClauseWithPartition;
-        if (schemaName != null && !schemaName.trim().isEmpty()) {
-            fromClauseWithPartition = String.format(" FROM %s.%s PARTITION(%s)",
-                    quote(schemaName), quote(tableName), partitionName);
-        }
-        else {
-            fromClauseWithPartition = String.format(" FROM %s PARTITION(%s)",
-                    quote(tableName), partitionName);
-        }
-
-        return baseQuery.replace(expectedFromClause, fromClauseWithPartition);
+        // Use case-insensitive replacement
+        return baseQuery.replaceAll("(?i)" + pattern, replacement);
     }
 } 

@@ -91,10 +91,10 @@ public class SqlServerQueryBuilderTest
     @Test
     public void build_WithProjectionAndTableName_GeneratesCorrectSelectQuery()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE);
-        
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -113,12 +113,12 @@ public class SqlServerQueryBuilderTest
     {
         List<OrderByField> orderByFields = createOrderByFields();
         Constraints constraints = createConstraintsWithOrderBy(orderByFields);
-        
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE)
-                .withOrderByClause(constraints);
-        
+
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+        builder.withOrderByClause(constraints);
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -131,11 +131,11 @@ public class SqlServerQueryBuilderTest
     public void build_WithLimitClause_DoesNotIncludeLimitInSql()
     {
         // SQL Server doesn't support LIMIT, so limit clause should be empty
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE)
-                .withLimitClause();
-        
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+        builder.withLimitClause();
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -146,11 +146,11 @@ public class SqlServerQueryBuilderTest
     public void build_WithEmptyProjection_GeneratesQueryWithNull()
     {
         Schema emptySchema = new Schema(Collections.emptyList());
-        
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(emptySchema, split)
-                .withTableName(TEST_TABLE);
-        
+
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(emptySchema, split);
+        builder.withTableName(TEST_TABLE);
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -162,9 +162,9 @@ public class SqlServerQueryBuilderTest
     @Test
     public void getSchemaName_WhenCalled_ReturnsQuotedSchemaName()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE);
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
 
         assertEquals("Schema name should match", "\"test_schema\"", builder.getSchemaName());
         assertEquals("Table name should match", "\"test_table\"", builder.getTableName());
@@ -183,14 +183,14 @@ public class SqlServerQueryBuilderTest
     {
         List<OrderByField> orderByFields = createOrderByFields();
         Constraints constraints = createConstraintsWithOrderBy(orderByFields);
-        
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withCatalog(null) // SQL Server doesn't use catalog
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE)
-                .withOrderByClause(constraints)
-                .withLimitClause();
-        
+
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withCatalog(null); // SQL Server doesn't use catalog
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+        builder.withOrderByClause(constraints);
+        builder.withLimitClause();
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -205,11 +205,11 @@ public class SqlServerQueryBuilderTest
     public void build_WithEmptySchema_GeneratesQueryWithTableNameOnly()
     {
         TableName tableWithEmptySchema = new TableName("", TEST_TABLE_NAME);
-        
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(tableWithEmptySchema);
-        
+
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(tableWithEmptySchema);
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
@@ -219,10 +219,10 @@ public class SqlServerQueryBuilderTest
     @Test
     public void getSchemaName_WithQuotesInIdentifier_EscapesQuotes()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE);
-        
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+
         // Test getters return quoted identifiers
         assertEquals("Schema name should be quoted", "\"test_schema\"", builder.getSchemaName());
         assertEquals("Table name should be quoted", "\"test_table\"", builder.getTableName());
@@ -242,11 +242,11 @@ public class SqlServerQueryBuilderTest
         splitProperties.put(PARTITION_COLUMN, "p0");
         Split splitWithPartition = mock(Split.class);
         when(splitWithPartition.getProperties()).thenReturn(splitProperties);
-        
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, splitWithPartition)
-                .withTableName(TEST_TABLE);
-        
+
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, splitWithPartition);
+        builder.withTableName(TEST_TABLE);
+
         List<String> projection = builder.getProjection();
         
         assertFalse("Partition column should be filtered out", projection.contains("\"partition_col\""));
@@ -262,27 +262,27 @@ public class SqlServerQueryBuilderTest
     @Test(expected = NullPointerException.class)
     public void build_WhenTableNameNotSet_ThrowsNullPointerException()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withProjection(testSchema, split);
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, split);
         builder.build();
     }
 
     @Test(expected = NullPointerException.class)
     public void build_WhenProjectionNotSet_ThrowsNullPointerException()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withTableName(TEST_TABLE);
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withTableName(TEST_TABLE);
         builder.build();
     }
 
     @Test
     public void build_WithNullCatalog_DoesNotIncludeCatalogInFromClause()
     {
-        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder()
-                .withCatalog(null)
-                .withProjection(testSchema, split)
-                .withTableName(TEST_TABLE);
-        
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withCatalog(null);
+        builder.withProjection(testSchema, split);
+        builder.withTableName(TEST_TABLE);
+
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);

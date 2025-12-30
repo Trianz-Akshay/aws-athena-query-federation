@@ -102,6 +102,29 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
         return quote(columnName);
     }
 
+    public JdbcQueryBuilder withProjection(Schema schema, Split split)
+    {
+        this.projection = schema.getFields().stream()
+                .map(Field::getName)
+                .filter(name -> !split.getProperties().containsKey(name))
+                .map(this::transformColumnForProjection)
+                .collect(Collectors.toList());
+        return this;
+    }
+
+    /**
+     * Hook method for transforming column names in the projection.
+     * Subclasses can override this to apply connector-specific transformations
+     * (e.g., RTRIM for CHAR columns in PostgreSQL).
+     *
+     * @param columnName The column name to transform
+     * @return The transformed column expression (default: just quoted column name)
+     */
+    protected String transformColumnForProjection(String columnName)
+    {
+        return quote(columnName);
+    }
+
     public List<TypeAndValue> getParameterValues()
     {
         return parameterValues;

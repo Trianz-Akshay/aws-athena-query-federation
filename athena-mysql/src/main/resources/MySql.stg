@@ -1,0 +1,16 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: MySqlQueryBuilder.java
+ *@Description: This template is used to build MySQL SELECT statements with constraints, ordering, limits, and partition support.
+ *@param builder An Instance of MySqlQueryBuilder.
+ *@return A SQL query that can be executed by MySQL.
+ */
+select_query(builder) ::= <%
+    SELECT <if(builder.projection)><builder.projection:{col|<col>}; separator=", "><else>null<endif> FROM <if(builder.catalog)><builder.catalog>.<endif><if(builder.schemaName)><builder.schemaName>.<endif><builder.tableName><if(builder.partitionClause)> <builder.partitionClause><endif><if(builder.conjuncts)> WHERE <builder.conjuncts:{conjunct|<conjunct>}; separator=" AND "><endif><if(builder.orderByClause)> <builder.orderByClause><endif><if(builder.limitClause)><if(builder.orderByClause || builder.conjuncts || builder.partitionClause)> <endif><builder.limitClause><endif>
+%>
+

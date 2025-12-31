@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,10 +28,10 @@ import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFact
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.athena.AthenaClient;
@@ -41,6 +41,8 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DEFAULT_PORT;
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DRIVER_CLASS;
@@ -57,11 +59,9 @@ public class MySqlRecordHandler
     @VisibleForTesting
     protected static final String MYSQL_QUOTE_CHARACTER = "`";
 
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
-
     /**
      * Instantiates handler to be used by Lambda function directly.
-     *
+     * <p>
      * Recommend using {@link MySqlMuxCompositeHandler} instead.
      */
     public MySqlRecordHandler(java.util.Map<String, String> configOptions)
@@ -77,15 +77,14 @@ public class MySqlRecordHandler
     public MySqlRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(), AthenaClient.create(),
-                jdbcConnectionFactory, new MySqlQueryStringBuilder(MYSQL_QUOTE_CHARACTER, new MySqlFederationExpressionParser(MYSQL_QUOTE_CHARACTER)), configOptions);
+                jdbcConnectionFactory, configOptions);
     }
 
     @VisibleForTesting
     MySqlRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, final S3Client amazonS3, final SecretsManagerClient secretsManager,
-            final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+                       final AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory,  java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
     }
 
     @Override
@@ -98,7 +97,17 @@ public class MySqlRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate-based query building
+            List<TypeAndValue> parameterValues = new ArrayList<>();
+            String sql = MySqlSqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
+
+            LOGGER.info("Generated SQL: {}", sql);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+
+            // Set parameters for the prepared statement
+            if (!parameterValues.isEmpty()) {
+                JdbcSqlUtils.setParameters(preparedStatement, parameterValues);
+            }
         }
         // Disable fetching all rows.
         preparedStatement.setFetchSize(Integer.MIN_VALUE);

@@ -1,0 +1,15 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: MySqlQueryBuilder.java
+ *@Description: Template for MySQL PARTITION clause.
+ *@param partitionValue The partition value to use in the PARTITION clause.
+ *@return A PARTITION clause like PARTITION(partition_value)
+ */
+partition_clause(partitionValue) ::= <%
+    PARTITION(<partitionValue>)
+%>

@@ -20,7 +20,6 @@
 package com.amazonaws.athena.connectors.mysql.query;
 
 import com.amazonaws.athena.connector.lambda.domain.Split;
-import com.amazonaws.athena.connector.lambda.domain.TableName;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.OrderByField;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryBuilder;
@@ -36,31 +35,13 @@ import static com.amazonaws.athena.connectors.mysql.MySqlConstants.ALL_PARTITION
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.BLOCK_PARTITION_COLUMN_NAME;
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_QUOTE_CHARACTER;
 
-public class MySqlQueryBuilder extends JdbcQueryBuilder
+public class MySqlQueryBuilder extends JdbcQueryBuilder<MySqlQueryBuilder>
 {
     private String partitionClause;
 
     public MySqlQueryBuilder(ST template)
     {
         super(template, MYSQL_QUOTE_CHARACTER);
-    }
-
-    @Override
-    public MySqlQueryBuilder withCatalog(String catalog)
-    {
-        return (MySqlQueryBuilder) super.withCatalog(catalog);
-    }
-
-    @Override
-    public MySqlQueryBuilder withTableName(TableName tableName)
-    {
-        return (MySqlQueryBuilder) super.withTableName(tableName);
-    }
-
-    @Override
-    public MySqlQueryBuilder withProjection(Schema schema, Split split)
-    {
-        return (MySqlQueryBuilder) super.withProjection(schema, split);
     }
 
     public MySqlQueryBuilder withConjuncts(Schema schema, Constraints constraints, Split split)

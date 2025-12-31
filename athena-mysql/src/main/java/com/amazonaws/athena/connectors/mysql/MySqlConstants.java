@@ -24,6 +24,8 @@ public final class MySqlConstants
     public static final String MYSQL_NAME = "mysql";
     public static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     public static final int MYSQL_DEFAULT_PORT = 3306;
-
+    public static final String MYSQL_QUOTE_CHARACTER = "`";
+    public static final String BLOCK_PARTITION_COLUMN_NAME = "partition_name";
+    public static final String ALL_PARTITIONS = "*";
     private MySqlConstants() {}
 }

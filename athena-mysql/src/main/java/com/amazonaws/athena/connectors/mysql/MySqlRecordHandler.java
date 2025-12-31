@@ -29,6 +29,7 @@ import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.lang3.Validate;
@@ -41,6 +42,8 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DEFAULT_PORT;
 import static com.amazonaws.athena.connectors.mysql.MySqlConstants.MYSQL_DRIVER_CLASS;
@@ -98,7 +101,17 @@ public class MySqlRecordHandler
             preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
         }
         else {
-            preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableName.getSchemaName(), tableName.getTableName(), schema, constraints, split);
+            // Use StringTemplate-based query building
+            List<TypeAndValue> parameterValues = new ArrayList<>();
+            String sql = MySqlSqlUtils.buildSql(tableName, schema, constraints, split, parameterValues);
+
+            LOGGER.info("Generated SQL: {}", sql);
+            preparedStatement = jdbcConnection.prepareStatement(sql);
+
+            // Set parameters for the prepared statement
+            if (!parameterValues.isEmpty()) {
+                jdbcSplitQueryBuilder.setParameters(preparedStatement, parameterValues);
+            }
         }
         // Disable fetching all rows.
         preparedStatement.setFetchSize(Integer.MIN_VALUE);

@@ -92,25 +92,6 @@ public class HbaseConnectionFactoryTest
 
     private HbaseConnectionFactory connectionFactory;
 
-    private HbaseConnectionFactory createFactoryWithKerberosEnv(Map<String, String> envVars)
-    {
-        return new HbaseConnectionFactory()
-        {
-            @Override
-            protected HbaseEnvironmentProperties getEnvironmentProperties()
-            {
-                return new HbaseEnvironmentProperties()
-                {
-                    @Override
-                    protected Map<String, String> getEnvMap()
-                    {
-                        return envVars;
-                    }
-                };
-            }
-        };
-    }
-
     @Before
     public void setUp()
             throws Exception
@@ -178,7 +159,7 @@ public class HbaseConnectionFactoryTest
     }
 
     @Test
-    public void getOrCreateConn_withCacheMiss_createsNewConnection()
+    public void getOrCreateConn_createsNewConnectionAndCachesIt()
             throws IOException
     {
         String conStr = CONN_STR_LOCALHOST;
@@ -196,11 +177,16 @@ public class HbaseConnectionFactoryTest
 
             HBaseConnection conn = testFactory.getOrCreateConn(conStr);
             assertNotNull("Connection should not be null", conn);
+            
+            // Verify createConnection was called
+            connectionFactoryMock.verify(() -> ConnectionFactory.createConnection(any(Configuration.class)), times(1));
 
-            // Verify it's cached
+            // Second call - cache hit, should return cached connection
             HBaseConnection conn2 = testFactory.getOrCreateConn(conStr);
             assertNotNull("Second connection should not be null", conn2);
-            assertEquals("Second connection should be cached", conn, conn2);
+            assertEquals("Second connection should be cached (same instance)", conn, conn2);
+            // Verify createConnection was not called again, proving cache was used
+            connectionFactoryMock.verify(() -> ConnectionFactory.createConnection(any(Configuration.class)), times(1));
         }
     }
 
@@ -256,43 +242,19 @@ public class HbaseConnectionFactoryTest
     @Test
     public void getOrCreateConn_withInvalidEndpointFormat_throwsIllegalArgumentException()
     {
-        try {
-            connectionFactory.getOrCreateConn(INVALID_FORMAT);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should contain format error", 
-                    ex.getMessage() != null && ex.getMessage().contains("format error"));
-        }
+        assertGetOrCreateConnThrowsIllegalArgumentException(INVALID_FORMAT);
     }
 
     @Test
     public void getOrCreateConn_withInvalidEndpointFormatTooManyParts_throwsIllegalArgumentException()
     {
-        try {
-            connectionFactory.getOrCreateConn(INVALID_FORMAT_TOO_MANY);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should contain format error", 
-                    ex.getMessage() != null && ex.getMessage().contains("format error"));
-        }
+        assertGetOrCreateConnThrowsIllegalArgumentException(INVALID_FORMAT_TOO_MANY);
     }
 
     @Test
     public void getOrCreateConn_withInvalidEndpointFormatTooFewParts_throwsIllegalArgumentException()
     {
-        try {
-            connectionFactory.getOrCreateConn(INVALID_FORMAT_TOO_FEW);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should contain format error", 
-                    ex.getMessage() != null && ex.getMessage().contains("format error"));
-        }
+        assertGetOrCreateConnThrowsIllegalArgumentException(INVALID_FORMAT_TOO_FEW);
     }
 
     @Test
@@ -356,54 +318,25 @@ public class HbaseConnectionFactoryTest
     }
 
     @Test
-    public void setClientConfig_withExistingConfig_overwritesValue()
+    public void setClientConfig_withExistingConfig_overridesValue()
     {
         connectionFactory.setClientConfig(HBASE_RPC_TIMEOUT, TIMEOUT_5000);
         Map<String, String> configs = connectionFactory.getClientConfigs();
 
-        assertEquals("Config should be overwritten", TIMEOUT_5000, configs.get(HBASE_RPC_TIMEOUT));
+        assertEquals("Config should be overridden", TIMEOUT_5000, configs.get(HBASE_RPC_TIMEOUT));
     }
 
     @Test
-    public void getOrCreateConn_withValidFormat_callsCreateConnection()
-            throws IOException
+    public void setClientConfig_withCustomClientConfigs_appliesConfigs()
     {
-        // This test verifies that createConnection is called through getOrCreateConn
-        String conStr = CONN_STR_LOCALHOST;
-        Connection mockHBaseConn = mock(Connection.class);
-        Admin mockAdmin = mock(Admin.class);
-        when(mockHBaseConn.getAdmin()).thenReturn(mockAdmin);
-
-        HbaseConnectionFactory testFactory = new HbaseConnectionFactory();
-
-        try (MockedStatic<ConnectionFactory> connectionFactoryMock = mockStatic(ConnectionFactory.class)) {
-            connectionFactoryMock.when(() -> ConnectionFactory.createConnection(any(Configuration.class)))
-                    .thenReturn(mockHBaseConn);
-
-            HBaseConnection conn = testFactory.getOrCreateConn(conStr);
-            assertNotNull("Connection should not be null", conn);
-
-            // Verify it's cached
-            HBaseConnection conn2 = testFactory.getOrCreateConn(conStr);
-            assertNotNull("Second connection should not be null", conn2);
-            assertEquals("Second connection should be cached", conn, conn2);
-        }
-    }
-
-    @Test
-    public void getOrCreateConn_withCustomClientConfigs_appliesConfigs()
-    {
-        // Verify that custom configs are stored and will be applied in createConnection
-        String customConfigKey = "hbase.custom.test.config";
-        String customConfigValue = "test_custom_value";
+        String customConfigKey = "hbase.custom.config";
+        String customConfigValue = "custom_value";
         connectionFactory.setClientConfig(customConfigKey, customConfigValue);
         
+        // Verify config is stored
         Map<String, String> configs = connectionFactory.getClientConfigs();
         assertTrue("Custom config should be present", configs.containsKey(customConfigKey));
         assertEquals("Custom config value should match", customConfigValue, configs.get(customConfigKey));
-        
-        // When getOrCreateConn is called, createConnection will apply these configs
-        // We verify the configs are stored correctly
     }
 
     @Test
@@ -425,23 +358,6 @@ public class HbaseConnectionFactoryTest
                 assertTrue("Exception should contain IOException", ex.getCause() instanceof IOException);
             }
         }
-    }
-
-    @Test
-    public void getOrCreateConn_withValidFormat_appliesDefaultClientConfigs()
-    {
-        // Verify default configs are set and will be applied in createConnection
-        Map<String, String> configs = connectionFactory.getClientConfigs();
-        assertTrue("Should have hbase.rpc.timeout", configs.containsKey("hbase.rpc.timeout"));
-        assertEquals("hbase.rpc.timeout should be 2000", TIMEOUT_2000, configs.get("hbase.rpc.timeout"));
-        assertTrue("Should have hbase.client.retries.number", configs.containsKey("hbase.client.retries.number"));
-        assertEquals("hbase.client.retries.number should be 3", RETRIES_3, configs.get("hbase.client.retries.number"));
-        assertTrue("Should have hbase.client.pause", configs.containsKey("hbase.client.pause"));
-        assertEquals("hbase.client.pause should be 500", PAUSE_500, configs.get("hbase.client.pause"));
-        assertTrue("Should have zookeeper.recovery.retry", configs.containsKey("zookeeper.recovery.retry"));
-        assertEquals("zookeeper.recovery.retry should be 2", RETRY_2, configs.get("zookeeper.recovery.retry"));
-        
-        // When getOrCreateConn is called, createConnection will apply these configs to the Configuration
     }
 
     @Test
@@ -542,93 +458,13 @@ public class HbaseConnectionFactoryTest
     }
 
     @Test
-    public void getOrCreateConn_withKerberosEnabled_setsKerberosConfig()
+    public void getOrCreateConn_withKerberosEnabled_callsUserGroupInformationMethods()
             throws Exception
     {
-        // This test verifies the Kerberos code path in createConnection
+        // This test verifies UserGroupInformation.setConfiguration and loginUserFromKeytab are called
         Connection mockHBaseConn = mock(Connection.class);
 
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
-        HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
-
-        try (MockedStatic<UserGroupInformation> ugiMock = mockStatic(UserGroupInformation.class);
-             MockedStatic<ConnectionFactory> connectionFactoryMock = mockStatic(ConnectionFactory.class)) {
-            ugiMock.when(() -> UserGroupInformation.setConfiguration(any(Configuration.class))).thenAnswer(invocation -> null);
-            ugiMock.when(() -> UserGroupInformation.loginUserFromKeytab(anyString(), anyString())).thenAnswer(invocation -> null);
-
-            Admin mockAdmin = mock(Admin.class);
-            when(mockHBaseConn.getAdmin()).thenReturn(mockAdmin);
-
-            connectionFactoryMock.when(() -> ConnectionFactory.createConnection(any(Configuration.class)))
-                    .thenReturn(mockHBaseConn);
-
-            HBaseConnection conn = testFactory.getOrCreateConn(CONN_STR_LOCALHOST);
-            assertNotNull("Connection should not be null", conn);
-            
-            // Verify connection test is called on second getOrCreateConn
-            HBaseConnection conn2 = testFactory.getOrCreateConn(CONN_STR_LOCALHOST);
-            assertNotNull("Second connection should not be null", conn2);
-            assertEquals("Should return cached connection", conn, conn2);
-        }
-    }
-
-    @Test
-    public void getOrCreateConn_withKerberosEnabledAndS3Uri_copiesConfigFiles()
-    {
-        // This test verifies the Kerberos code path with S3 config files
-        Connection mockHBaseConn = mock(Connection.class);
-
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
-        envVars.put(KERBEROS_CONFIG_FILES_S3_REFERENCE, TEST_S3_URI);
-        HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
-
-        Path mockTempDir = Paths.get("/tmp/test-kerberos-configs");
-        String originalKrb5Conf = System.getProperty("java.security.krb5.conf");
-
-        try (MockedStatic<HbaseKerberosUtils> kerberosUtilsMock = mockStatic(HbaseKerberosUtils.class);
-             MockedStatic<UserGroupInformation> ugiMock = mockStatic(UserGroupInformation.class);
-             MockedStatic<ConnectionFactory> connectionFactoryMock = mockStatic(ConnectionFactory.class)) {
-            kerberosUtilsMock.when(() -> HbaseKerberosUtils.copyConfigFilesFromS3ToTempFolder(any(Map.class)))
-                    .thenReturn(mockTempDir);
-
-            ugiMock.when(() -> UserGroupInformation.setConfiguration(any(Configuration.class))).thenAnswer(invocation -> null);
-            ugiMock.when(() -> UserGroupInformation.loginUserFromKeytab(anyString(), anyString())).thenAnswer(invocation -> null);
-
-            connectionFactoryMock.when(() -> ConnectionFactory.createConnection(any(Configuration.class)))
-                    .thenReturn(mockHBaseConn);
-
-            HBaseConnection conn = testFactory.getOrCreateConn(CONN_STR_LOCALHOST);
-            assertNotNull("Connection should not be null", conn);
-
-            kerberosUtilsMock.verify(() -> HbaseKerberosUtils.copyConfigFilesFromS3ToTempFolder(any(Map.class)));
-        }
-        finally {
-            if (originalKrb5Conf != null) {
-                System.setProperty("java.security.krb5.conf", originalKrb5Conf);
-            }
-            else {
-                System.clearProperty("java.security.krb5.conf");
-            }
-        }
-    }
-
-    @Test
-    public void getOrCreateConn_withKerberosEnabled_verifiesConfigSettings()
-            throws Exception
-    {
-        // This test verifies that Kerberos configuration values are set correctly
-        Connection mockHBaseConn = mock(Connection.class);
-
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
+        Map<String, String> envVars = createBaseKerberosEnvVars();
         HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
 
         try (MockedStatic<UserGroupInformation> ugiMock = mockStatic(UserGroupInformation.class);
@@ -658,10 +494,7 @@ public class HbaseConnectionFactoryTest
         // This test verifies the S3 copy code path and System.setProperty call
         Connection mockHBaseConn = mock(Connection.class);
 
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
+        Map<String, String> envVars = createBaseKerberosEnvVars();
         envVars.put(KERBEROS_CONFIG_FILES_S3_REFERENCE, TEST_S3_URI);
         HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
 
@@ -701,38 +534,10 @@ public class HbaseConnectionFactoryTest
     }
 
     @Test
-    public void getOrCreateConn_withKerberosEnabled_callsUserGroupInformationMethods()
-    {
-        // This test verifies UserGroupInformation.setConfiguration and loginUserFromKeytab are called
-        Connection mockHBaseConn = mock(Connection.class);
-
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
-        HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
-
-        try (MockedStatic<UserGroupInformation> ugiMock = mockStatic(UserGroupInformation.class);
-             MockedStatic<ConnectionFactory> connectionFactoryMock = mockStatic(ConnectionFactory.class)) {
-            ugiMock.when(() -> UserGroupInformation.setConfiguration(any(Configuration.class))).thenAnswer(invocation -> null);
-            ugiMock.when(() -> UserGroupInformation.loginUserFromKeytab(anyString(), anyString())).thenAnswer(invocation -> null);
-
-            connectionFactoryMock.when(() -> ConnectionFactory.createConnection(any(Configuration.class)))
-                    .thenReturn(mockHBaseConn);
-
-            HBaseConnection conn = testFactory.getOrCreateConn(CONN_STR_LOCALHOST);
-            assertNotNull("Connection should not be null", conn);
-        }
-    }
-
-    @Test
     public void getOrCreateConn_withKerberosEnabledAndS3CopyFailure_throwsRuntimeException()
     {
         // This test verifies error handling when S3 copy fails
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
+        Map<String, String> envVars = createBaseKerberosEnvVars();
         envVars.put(KERBEROS_CONFIG_FILES_S3_REFERENCE, TEST_S3_URI);
         HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
 
@@ -756,10 +561,7 @@ public class HbaseConnectionFactoryTest
     public void getOrCreateConn_withKerberosEnabledAndLoginFailure_throwsRuntimeException()
     {
         // This test verifies error handling when UserGroupInformation.loginUserFromKeytab fails
-        Map<String, String> envVars = new HashMap<>();
-        envVars.put(KERBEROS_AUTH_ENABLED, "true");
-        envVars.put(PRINCIPAL_NAME, TEST_USER);
-        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
+        Map<String, String> envVars = createBaseKerberosEnvVars();
         HbaseConnectionFactory testFactory = createFactoryWithKerberosEnv(envVars);
 
         try (MockedStatic<UserGroupInformation> ugiMock = mockStatic(UserGroupInformation.class)) {
@@ -779,5 +581,46 @@ public class HbaseConnectionFactoryTest
 
             // Code path verified - setConfiguration was called before the failure
         }
+    }
+
+    private void assertGetOrCreateConnThrowsIllegalArgumentException(String invalidFormat)
+    {
+        try {
+            connectionFactory.getOrCreateConn(invalidFormat);
+            fail("Expected IllegalArgumentException was not thrown");
+        }
+        catch (IllegalArgumentException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertTrue("Exception message should contain format error",
+                    ex.getMessage() != null && ex.getMessage().contains("format error"));
+        }
+    }
+
+    private Map<String, String> createBaseKerberosEnvVars()
+    {
+        Map<String, String> envVars = new HashMap<>();
+        envVars.put(KERBEROS_AUTH_ENABLED, "true");
+        envVars.put(PRINCIPAL_NAME, TEST_USER);
+        envVars.put(HBASE_RPC_PROTECTION, TEST_RPC_PROTECTION);
+        return envVars;
+    }
+
+    private HbaseConnectionFactory createFactoryWithKerberosEnv(Map<String, String> envVars)
+    {
+        return new HbaseConnectionFactory()
+        {
+            @Override
+            protected HbaseEnvironmentProperties getEnvironmentProperties()
+            {
+                return new HbaseEnvironmentProperties()
+                {
+                    @Override
+                    protected Map<String, String> getEnvMap()
+                    {
+                        return envVars;
+                    }
+                };
+            }
+        };
     }
 }

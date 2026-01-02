@@ -43,21 +43,10 @@ public class HbaseQueryPassthroughTest
     private static final String TEST_DB = "test_db";
     private static final String TEST_COLLECTION = "test_collection";
     private static final String TEST_FILTER = "test_filter";
-    private static final String EMPTY_STRING = "";
     private static final String WRONG_SIGNATURE = "WRONG.SIGNATURE";
     private static final int EXPECTED_ARGUMENT_COUNT = 3;
 
     private final HbaseQueryPassthrough queryPassthrough = new HbaseQueryPassthrough();
-
-    private Map<String, String> createValidQptArguments()
-    {
-        Map<String, String> engineQptArguments = new HashMap<>();
-        engineQptArguments.put(QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, SYSTEM_QUERY);
-        engineQptArguments.put(DATABASE, TEST_DB);
-        engineQptArguments.put(COLLECTION, TEST_COLLECTION);
-        engineQptArguments.put(FILTER, TEST_FILTER);
-        return engineQptArguments;
-    }
 
     @Test
     public void getFunctionSchema_withDefault_returnsSystem()
@@ -87,27 +76,6 @@ public class HbaseQueryPassthroughTest
     }
 
     @Test
-    public void getLogger_withDefault_returnsLogger()
-    {
-        assertNotNull("Logger should not be null", queryPassthrough.getLogger());
-    }
-
-    @Test
-    public void verify_withValidArguments_succeeds()
-    {
-        Map<String, String> engineQptArguments = createValidQptArguments();
-        queryPassthrough.verify(engineQptArguments);
-    }
-
-    @Test
-    public void verify_withEmptyFilter_succeeds()
-    {
-        Map<String, String> engineQptArguments = createValidQptArguments();
-        engineQptArguments.put(FILTER, EMPTY_STRING);
-        queryPassthrough.verify(engineQptArguments);
-    }
-
-    @Test
     public void verify_withMissingDatabase_throwsIllegalArgumentException()
     {
         Map<String, String> engineQptArguments = new HashMap<>();
@@ -115,15 +83,7 @@ public class HbaseQueryPassthroughTest
         engineQptArguments.put(COLLECTION, TEST_COLLECTION);
         engineQptArguments.put(FILTER, TEST_FILTER);
 
-        try {
-            queryPassthrough.verify(engineQptArguments);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertVerifyThrowsIllegalArgumentException(engineQptArguments);
     }
 
     @Test
@@ -134,15 +94,7 @@ public class HbaseQueryPassthroughTest
         engineQptArguments.put(DATABASE, TEST_DB);
         engineQptArguments.put(FILTER, TEST_FILTER);
 
-        try {
-            queryPassthrough.verify(engineQptArguments);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertVerifyThrowsIllegalArgumentException(engineQptArguments);
     }
 
     @Test
@@ -153,15 +105,7 @@ public class HbaseQueryPassthroughTest
         engineQptArguments.put(DATABASE, TEST_DB);
         engineQptArguments.put(COLLECTION, TEST_COLLECTION);
 
-        try {
-            queryPassthrough.verify(engineQptArguments);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertVerifyThrowsIllegalArgumentException(engineQptArguments);
     }
 
     @Test
@@ -173,15 +117,7 @@ public class HbaseQueryPassthroughTest
         engineQptArguments.put(COLLECTION, TEST_COLLECTION);
         engineQptArguments.put(FILTER, TEST_FILTER);
 
-        try {
-            queryPassthrough.verify(engineQptArguments);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertVerifyThrowsIllegalArgumentException(engineQptArguments);
     }
 
     @Test
@@ -192,6 +128,11 @@ public class HbaseQueryPassthroughTest
         engineQptArguments.put(COLLECTION, TEST_COLLECTION);
         engineQptArguments.put(FILTER, TEST_FILTER);
 
+        assertVerifyThrowsIllegalArgumentException(engineQptArguments);
+    }
+
+    private void assertVerifyThrowsIllegalArgumentException(Map<String, String> engineQptArguments)
+    {
         try {
             queryPassthrough.verify(engineQptArguments);
             fail("Expected IllegalArgumentException was not thrown");

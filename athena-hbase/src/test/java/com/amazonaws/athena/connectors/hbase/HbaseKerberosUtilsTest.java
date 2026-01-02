@@ -20,6 +20,7 @@
 package com.amazonaws.athena.connectors.hbase;
 
 import com.google.common.collect.ImmutableMap;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockedStatic;
@@ -36,8 +37,10 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -68,20 +71,17 @@ public class HbaseKerberosUtilsTest
     private static final String KRB5_CONF_CONTENT = "krb5.conf content";
     private static final String KEYTAB_CONTENT = "keytab content";
 
-    private void setupS3ClientMock(MockedStatic<S3Client> s3ClientMock, List<S3Object> s3Objects, 
-                                    List<ResponseInputStream<GetObjectResponse>> responseStreams)
+    @After
+    public void tearDown()
+            throws Exception
     {
-        S3Client mockS3Client = mock(S3Client.class);
-        s3ClientMock.when(S3Client::create).thenReturn(mockS3Client);
-
-        ListObjectsResponse listResponse = ListObjectsResponse.builder()
-                .contents(s3Objects != null ? s3Objects : Collections.emptyList())
-                .build();
-        when(mockS3Client.listObjects(any(ListObjectsRequest.class))).thenReturn(listResponse);
-
-        if (responseStreams != null && !responseStreams.isEmpty()) {
-            when(mockS3Client.getObject(any(GetObjectRequest.class)))
-                    .thenAnswer(invocation -> responseStreams.remove(0));
+        // Clean up temp directory created by tests
+        Path kerberosConfigDir = Paths.get("/tmp/hbasekerberosconfigs");
+        if (Files.exists(kerberosConfigDir)) {
+            Files.walk(kerberosConfigDir)
+                    .sorted(Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
         }
     }
 
@@ -131,25 +131,19 @@ public class HbaseKerberosUtilsTest
     @Test
     public void copyConfigFilesFromS3ToTempFolder_withInvalidS3Uri_throwsException()
     {
-        Map<String, String> configOptions = ImmutableMap.of(
-                HbaseKerberosUtils.KERBEROS_CONFIG_FILES_S3_REFERENCE, "invalid-uri"
-        );
-        try {
-            HbaseKerberosUtils.copyConfigFilesFromS3ToTempFolder(configOptions);
-            fail("Expected Exception was not thrown");
-        }
-        catch (Exception ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertCopyConfigFilesThrowsException("invalid-uri");
     }
 
     @Test
     public void copyConfigFilesFromS3ToTempFolder_withEmptyS3Uri_throwsException()
     {
+        assertCopyConfigFilesThrowsException("s3://");
+    }
+
+    private void assertCopyConfigFilesThrowsException(String s3Uri)
+    {
         Map<String, String> configOptions = ImmutableMap.of(
-                HbaseKerberosUtils.KERBEROS_CONFIG_FILES_S3_REFERENCE, "s3://"
+                HbaseKerberosUtils.KERBEROS_CONFIG_FILES_S3_REFERENCE, s3Uri
         );
         try {
             HbaseKerberosUtils.copyConfigFilesFromS3ToTempFolder(configOptions);
@@ -192,18 +186,7 @@ public class HbaseKerberosUtilsTest
     public void copyConfigFilesFromS3ToTempFolder_withS3UriMissingBucket_throwsException()
     {
         // Tests the path where S3 URI format is invalid (missing bucket after s3://)
-        Map<String, String> configOptions = ImmutableMap.of(
-                HbaseKerberosUtils.KERBEROS_CONFIG_FILES_S3_REFERENCE, "s3:///prefix"
-        );
-        try {
-            HbaseKerberosUtils.copyConfigFilesFromS3ToTempFolder(configOptions);
-            fail("Expected Exception was not thrown");
-        }
-        catch (Exception ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should not be empty", 
-                    ex.getMessage() != null && !ex.getMessage().isEmpty());
-        }
+        assertCopyConfigFilesThrowsException("s3:///prefix");
     }
 
 
@@ -336,6 +319,23 @@ public class HbaseKerberosUtilsTest
             assertNotNull("Temp directory path should not be null", result);
             // The directory should be created (either it existed or mkdirs() was called)
             assertTrue("Temp directory should exist", Files.exists(result));
+        }
+    }
+
+    private void setupS3ClientMock(MockedStatic<S3Client> s3ClientMock, List<S3Object> s3Objects, 
+                                    List<ResponseInputStream<GetObjectResponse>> responseStreams)
+    {
+        S3Client mockS3Client = mock(S3Client.class);
+        s3ClientMock.when(S3Client::create).thenReturn(mockS3Client);
+
+        ListObjectsResponse listResponse = ListObjectsResponse.builder()
+                .contents(s3Objects != null ? s3Objects : Collections.emptyList())
+                .build();
+        when(mockS3Client.listObjects(any(ListObjectsRequest.class))).thenReturn(listResponse);
+
+        if (responseStreams != null && !responseStreams.isEmpty()) {
+            when(mockS3Client.getObject(any(GetObjectRequest.class)))
+                    .thenAnswer(invocation -> responseStreams.remove(0));
         }
     }
 }

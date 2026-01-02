@@ -67,25 +67,6 @@ public class HbaseConnectionFactoryTest
 
     private HbaseConnectionFactory connectionFactory;
 
-    private HbaseConnectionFactory createFactoryWithKerberosEnv(Map<String, String> envVars)
-    {
-        return new HbaseConnectionFactory()
-        {
-            @Override
-            protected HbaseEnvironmentProperties getEnvironmentProperties()
-            {
-                return new HbaseEnvironmentProperties()
-                {
-                    @Override
-                    protected Map<String, String> getEnvMap()
-                    {
-                        return envVars;
-                    }
-                };
-            }
-        };
-    }
-
     @Before
     public void setUp()
             throws Exception
@@ -114,26 +95,6 @@ public class HbaseConnectionFactoryTest
         assertEquals(mockConn, conn);
         verify(mockConn, times(1)).getAdmin();
         verify(mockAdmin, times(1)).listTableNames();
-    }
-
-    @Test
-    public void getClientConfigs_withDefaultConfigs_returnsDefaultValues()
-    {
-        Map<String, String> configs = connectionFactory.getClientConfigs();
-        assertNotNull("Configs should not be null", configs);
-        assertTrue("Configs should contain hbase.rpc.timeout", configs.containsKey("hbase.rpc.timeout"));
-        assertTrue("Configs should contain hbase.client.retries.number", configs.containsKey("hbase.client.retries.number"));
-    }
-
-    @Test
-    public void setClientConfig_withValidConfig_addsToConfigMap()
-    {
-        String testKey = "test.config.key";
-        String testValue = "test.config.value";
-        connectionFactory.setClientConfig(testKey, testValue);
-        Map<String, String> configs = connectionFactory.getClientConfigs();
-        assertTrue("Config should contain the set value", configs.containsKey(testKey));
-        assertEquals("Config value should match", testValue, configs.get(testKey));
     }
 
     @Test
@@ -185,27 +146,26 @@ public class HbaseConnectionFactoryTest
             assertNotNull("Connection should not be null", conn);
             assertEquals("Connection should match mock", mockConn, conn);
 
-            // Verify it's cached
+            // Verify it's cached - second call should return same connection without creating new one
             Connection conn2 = connectionFactory.getOrCreateConn(VALID_CONN_STR);
             assertNotNull("Second connection should not be null", conn2);
-            assertEquals("Second connection should be cached", mockConn, conn2);
+            assertEquals("Second connection should be cached (same instance)", conn, conn2);
+            // Verify createConnection was only called once, proving cache was used
+            connectionFactoryMock.verify(() -> ConnectionFactory.createConnection(any(Configuration.class)), times(1));
         }
     }
 
     @Test
-    public void getOrCreateConn_withCustomClientConfigs_appliesConfigs()
+    public void setClientConfig_withCustomConfig_appliesConfigs()
     {
         String customConfigKey = "hbase.custom.config";
         String customConfigValue = "custom_value";
         connectionFactory.setClientConfig(customConfigKey, customConfigValue);
         
-        // Verify config is set
+        // Verify config is stored
         Map<String, String> configs = connectionFactory.getClientConfigs();
         assertTrue("Custom config should be present", configs.containsKey(customConfigKey));
         assertEquals("Custom config value should match", customConfigValue, configs.get(customConfigKey));
-        
-        // When createConnection is called, it should apply this config
-        // We can't verify the actual config application without mocking, but we verify the config is stored
     }
 
     @Test
@@ -228,17 +188,14 @@ public class HbaseConnectionFactoryTest
     }
 
     @Test
-    public void getOrCreateConn_withValidFormat_appliesDefaultClientConfigs()
+    public void getClientConfigs_returnsAllDefaultConfigs()
     {
-        // Verify default configs are set
         Map<String, String> configs = connectionFactory.getClientConfigs();
+        // Verify default configs are present
         assertTrue("Should have hbase.rpc.timeout", configs.containsKey("hbase.rpc.timeout"));
         assertTrue("Should have hbase.client.retries.number", configs.containsKey("hbase.client.retries.number"));
         assertTrue("Should have hbase.client.pause", configs.containsKey("hbase.client.pause"));
         assertTrue("Should have zookeeper.recovery.retry", configs.containsKey("zookeeper.recovery.retry"));
-        
-        // When createConnection is called via getOrCreateConn, these configs should be applied
-        // We verify the configs exist, actual application happens in createConnection
     }
 
     @Test
@@ -374,8 +331,25 @@ public class HbaseConnectionFactoryTest
                 // Verify exception is thrown - the IOException from loginUserFromKeytab is wrapped
                 // When keytabLocation is null, the exception might be different, so we just verify RuntimeException was thrown
             }
-
-            // Code path verified - setConfiguration was called before the failure
         }
+    }
+
+    private HbaseConnectionFactory createFactoryWithKerberosEnv(Map<String, String> envVars)
+    {
+        return new HbaseConnectionFactory()
+        {
+            @Override
+            protected HbaseEnvironmentProperties getEnvironmentProperties()
+            {
+                return new HbaseEnvironmentProperties()
+                {
+                    @Override
+                    protected Map<String, String> getEnvMap()
+                    {
+                        return envVars;
+                    }
+                };
+            }
+        };
     }
 }

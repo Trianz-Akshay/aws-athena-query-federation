@@ -82,33 +82,13 @@ public class HbaseFieldResolverTest
     @Test
     public void getFieldValue_withInvalidValueType_throwsIllegalArgumentException()
     {
-        Field field = FieldBuilder.newBuilder(FIELD_NAME, Types.MinorType.VARCHAR.getType()).build();
-        HbaseFieldResolver resolver = HbaseFieldResolver.resolver(false, FAMILY);
-
-        try {
-            resolver.getFieldValue(field, "not a Result");
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should contain Expected value", ex.getMessage().contains("Expected value of type Result"));
-        }
+        assertGetFieldValueThrowsIllegalArgumentException("not a Result", "Expected value of type Result");
     }
 
     @Test
     public void getFieldValue_withNullValueType_throwsIllegalArgumentException()
     {
-        Field field = FieldBuilder.newBuilder(FIELD_NAME, Types.MinorType.VARCHAR.getType()).build();
-        HbaseFieldResolver resolver = HbaseFieldResolver.resolver(false, FAMILY);
-
-        try {
-            resolver.getFieldValue(field, null);
-            fail("Expected IllegalArgumentException was not thrown");
-        }
-        catch (IllegalArgumentException ex) {
-            assertNotNull("Exception should not be null", ex);
-            assertTrue("Exception message should contain null", ex.getMessage().contains("null"));
-        }
+        assertGetFieldValueThrowsIllegalArgumentException(null, "null");
     }
 
     @Test
@@ -116,5 +96,21 @@ public class HbaseFieldResolverTest
     {
         HbaseFieldResolver resolver = HbaseFieldResolver.resolver(false, FAMILY);
         assertNotNull("Resolver should not be null", resolver);
+    }
+
+    private void assertGetFieldValueThrowsIllegalArgumentException(Object invalidValue, String expectedMessageSubstring)
+    {
+        Field field = FieldBuilder.newBuilder(FIELD_NAME, Types.MinorType.VARCHAR.getType()).build();
+        HbaseFieldResolver resolver = HbaseFieldResolver.resolver(false, FAMILY);
+
+        try {
+            resolver.getFieldValue(field, invalidValue);
+            fail("Expected IllegalArgumentException was not thrown");
+        }
+        catch (IllegalArgumentException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertTrue("Exception message should contain " + expectedMessageSubstring,
+                    ex.getMessage() != null && ex.getMessage().contains(expectedMessageSubstring));
+        }
     }
 }

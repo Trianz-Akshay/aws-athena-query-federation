@@ -27,10 +27,9 @@ import static org.junit.Assert.assertNotNull;
 public class UnrecoverableExceptionTest
 {
     private static final String TEST_ERROR_MESSAGE = "Test error message";
-    private static final String ROOT_CAUSE = "Root cause";
 
     @Test
-    public void UnrecoverableException_withMessage_createsExceptionWithMessage()
+    public void unrecoverableException_withMessage_createsExceptionWithMessage()
     {
         String message = TEST_ERROR_MESSAGE;
         UnrecoverableException exception = new UnrecoverableException(message, null);
@@ -40,10 +39,10 @@ public class UnrecoverableExceptionTest
     }
 
     @Test
-    public void UnrecoverableException_withMessageAndCause_createsExceptionWithMessageAndCause()
+    public void unrecoverableException_withMessageAndCause_createsExceptionWithMessageAndCause()
     {
         String message = TEST_ERROR_MESSAGE;
-        Throwable cause = new RuntimeException(ROOT_CAUSE);
+        Throwable cause = new RuntimeException("Root cause");
         UnrecoverableException exception = new UnrecoverableException(message, cause);
 
         assertNotNull("Exception should not be null", exception);

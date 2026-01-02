@@ -44,7 +44,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.amazonaws.athena.connectors.hbase.HbaseSchemaUtils.coerceType;
 import static com.amazonaws.athena.connectors.hbase.HbaseSchemaUtils.toBytes;
 import static com.amazonaws.athena.connectors.hbase.TestUtils.makeResult;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -212,46 +217,38 @@ public class HbaseSchemaUtilsTest
     @Test
     public void toBytes_withNativeInteger_returnsBytes()
     {
-        Integer input = 123;
-        byte[] result = toBytes(true, input);
-        assertNotNull("Result should not be null", result);
-        assertEquals("Result should be 4 bytes", 4, result.length);
+        assertToBytesNativeType(123, 4, "Integer should be 4 bytes");
     }
 
     @Test
     public void toBytes_withNativeLong_returnsBytes()
     {
-        Long input = 12345L;
-        byte[] result = toBytes(true, input);
-        assertNotNull("Result should not be null", result);
-        assertEquals("Result should be 8 bytes", 8, result.length);
+        assertToBytesNativeType(12345L, 8, "Long should be 8 bytes");
     }
 
     @Test
     public void toBytes_withNativeFloat_returnsBytes()
     {
-        Float input = 1.23F;
-        byte[] result = toBytes(true, input);
-        assertNotNull("Result should not be null", result);
-        assertEquals("Result should be 4 bytes", 4, result.length);
+        assertToBytesNativeType(1.23F, 4, "Float should be 4 bytes");
     }
 
     @Test
     public void toBytes_withNativeDouble_returnsBytes()
     {
-        Double input = 1.23D;
-        byte[] result = toBytes(true, input);
-        assertNotNull("Result should not be null", result);
-        assertEquals("Result should be 8 bytes", 8, result.length);
+        assertToBytesNativeType(1.23D, 8, "Double should be 8 bytes");
     }
 
     @Test
     public void toBytes_withNativeBoolean_returnsBytes()
     {
-        Boolean input = true;
+        assertToBytesNativeType(true, 1, "Boolean should be 1 byte");
+    }
+
+    private void assertToBytesNativeType(Object input, int expectedLength, String message)
+    {
         byte[] result = toBytes(true, input);
         assertNotNull("Result should not be null", result);
-        assertEquals("Result should be 1 byte", 1, result.length);
+        assertEquals(message, expectedLength, result.length);
     }
 
     @Test

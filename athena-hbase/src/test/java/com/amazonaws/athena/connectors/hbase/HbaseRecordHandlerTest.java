@@ -309,41 +309,9 @@ public class HbaseRecordHandlerTest
             throws Exception
     {
         logger.info("doReadRecords_QueryPassthroughEmptyFilter_ReturnsReadRecordsResponse: enter");
-        List<Result> results = TestUtils.makeResults(10);
-        ResultScanner mockScanner = mock(ResultScanner.class);
-        when(mockScanner.iterator()).thenReturn(results.iterator());
-
-        when(mockClient.scanTable(any(), nullable(Scan.class), any())).thenAnswer((InvocationOnMock invocationOnMock) -> {
-            ResultProcessor processor = (ResultProcessor) invocationOnMock.getArguments()[2];
-            return processor.scan(mockScanner);
-        });
-
-        Map<String, String> qptArguments = new HashMap<>();
-        qptArguments.put(com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
-        qptArguments.put(HbaseQueryPassthrough.DATABASE, DEFAULT_SCHEMA);
-        qptArguments.put(HbaseQueryPassthrough.COLLECTION, TEST_TABLE);
-        qptArguments.put(HbaseQueryPassthrough.FILTER, "");
-
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create())
-                .add(HBASE_CONN_STR, FAKE_CON_STR);
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArguments, null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
+        setupMockScanner(10);
+        Map<String, String> qptArguments = createQptArguments("");
+        ReadRecordsRequest request = createReadRecordsRequestWithQpt(schemaForRead, qptArguments);
 
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
         assertTrue("Response should be ReadRecordsResponse", rawResponse instanceof ReadRecordsResponse);
@@ -357,41 +325,9 @@ public class HbaseRecordHandlerTest
             throws Exception
     {
         logger.info("doReadRecords_QueryPassthroughWithFilter_ReturnsReadRecordsResponse: enter");
-        List<Result> results = TestUtils.makeResults(10);
-        ResultScanner mockScanner = mock(ResultScanner.class);
-        when(mockScanner.iterator()).thenReturn(results.iterator());
-
-        when(mockClient.scanTable(any(), nullable(Scan.class), any())).thenAnswer((InvocationOnMock invocationOnMock) -> {
-            ResultProcessor processor = (ResultProcessor) invocationOnMock.getArguments()[2];
-            return processor.scan(mockScanner);
-        });
-
-        Map<String, String> qptArguments = new HashMap<>();
-        qptArguments.put(com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
-        qptArguments.put(HbaseQueryPassthrough.DATABASE, DEFAULT_SCHEMA);
-        qptArguments.put(HbaseQueryPassthrough.COLLECTION, TEST_TABLE);
-        qptArguments.put(HbaseQueryPassthrough.FILTER, ROW_FILTER);
-
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create())
-                .add(HBASE_CONN_STR, FAKE_CON_STR);
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArguments, null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
+        setupMockScanner(10);
+        Map<String, String> qptArguments = createQptArguments(ROW_FILTER);
+        ReadRecordsRequest request = createReadRecordsRequestWithQpt(schemaForRead, qptArguments);
 
         RecordResponse rawResponse = handler.doReadRecords(allocator, request);
         assertTrue("Response should be ReadRecordsResponse", rawResponse instanceof ReadRecordsResponse);
@@ -405,32 +341,8 @@ public class HbaseRecordHandlerTest
             throws Exception
     {
         logger.info("doReadRecords_QueryPassthroughInvalidFilter_ThrowsRuntimeException: enter");
-        Map<String, String> qptArguments = new HashMap<>();
-        qptArguments.put(com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
-        qptArguments.put(HbaseQueryPassthrough.DATABASE, DEFAULT_SCHEMA);
-        qptArguments.put(HbaseQueryPassthrough.COLLECTION, TEST_TABLE);
-        qptArguments.put(HbaseQueryPassthrough.FILTER, INVALID_FILTER_SYNTAX);
-
-        S3SpillLocation splitLoc = S3SpillLocation.newBuilder()
-                .withBucket(UUID.randomUUID().toString())
-                .withSplitId(UUID.randomUUID().toString())
-                .withQueryId(UUID.randomUUID().toString())
-                .withIsDirectory(true)
-                .build();
-
-        Split.Builder splitBuilder = Split.newBuilder(splitLoc, keyFactory.create())
-                .add(HBASE_CONN_STR, FAKE_CON_STR);
-
-        ReadRecordsRequest request = new ReadRecordsRequest(IDENTITY,
-                DEFAULT_CATALOG,
-                "queryId-" + System.currentTimeMillis(),
-                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
-                schemaForRead,
-                splitBuilder.build(),
-                new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArguments, null),
-                100_000_000_000L,
-                100_000_000_000L
-        );
+        Map<String, String> qptArguments = createQptArguments(INVALID_FILTER_SYNTAX);
+        ReadRecordsRequest request = createReadRecordsRequestWithQpt(schemaForRead, qptArguments);
 
         try {
             handler.doReadRecords(allocator, request);
@@ -884,6 +796,50 @@ public class HbaseRecordHandlerTest
                     ex.getMessage().contains("Column name"));
         }
         logger.info("doReadRecords_withInvalidColumnFormat_throwsRuntimeException: exit");
+    }
+
+    private ReadRecordsRequest createReadRecordsRequestWithQpt(Schema schema, Map<String, String> qptArguments)
+    {
+        S3SpillLocation spillLoc = S3SpillLocation.newBuilder()
+                .withBucket(UUID.randomUUID().toString())
+                .withSplitId(UUID.randomUUID().toString())
+                .withQueryId(UUID.randomUUID().toString())
+                .withIsDirectory(true)
+                .build();
+        Split split = Split.newBuilder(spillLoc, keyFactory.create())
+                .add(HBASE_CONN_STR, FAKE_CON_STR).build();
+        Constraints constraints = new Constraints(Collections.emptyMap(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, qptArguments, null);
+        return new ReadRecordsRequest(IDENTITY,
+                DEFAULT_CATALOG,
+                "queryId-" + System.currentTimeMillis(),
+                new TableName(DEFAULT_SCHEMA, TEST_TABLE),
+                schema,
+                split,
+                constraints,
+                100_000_000_000L,
+                100_000_000_000L);
+    }
+
+    private Map<String, String> createQptArguments(String filter)
+    {
+        Map<String, String> qptArguments = new HashMap<>();
+        qptArguments.put(com.amazonaws.athena.connector.lambda.metadata.optimizations.querypassthrough.QueryPassthroughSignature.SCHEMA_FUNCTION_NAME, "SYSTEM.QUERY");
+        qptArguments.put(HbaseQueryPassthrough.DATABASE, DEFAULT_SCHEMA);
+        qptArguments.put(HbaseQueryPassthrough.COLLECTION, TEST_TABLE);
+        qptArguments.put(HbaseQueryPassthrough.FILTER, filter);
+        return qptArguments;
+    }
+
+    private void setupMockScanner(int resultCount)
+    {
+        List<Result> results = TestUtils.makeResults(resultCount);
+        ResultScanner mockScanner = mock(ResultScanner.class);
+        when(mockScanner.iterator()).thenReturn(results.iterator());
+
+        when(mockClient.scanTable(any(), nullable(Scan.class), any())).thenAnswer((InvocationOnMock invocationOnMock) -> {
+            ResultProcessor processor = (ResultProcessor) invocationOnMock.getArguments()[2];
+            return processor.scan(mockScanner);
+        });
     }
 
     private class ByteHolder

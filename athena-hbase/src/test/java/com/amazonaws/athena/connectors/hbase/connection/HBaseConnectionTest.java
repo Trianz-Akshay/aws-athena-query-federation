@@ -28,7 +28,6 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -41,9 +40,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.booleanThat;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -439,6 +441,97 @@ public class HBaseConnectionTest
     {
         connection.close();
         verify(mockConnection, times(1)).close();
+    }
+
+    @Test
+    public void close_withIOException_handlesGracefully()
+            throws IOException
+    {
+        Mockito.doThrow(new IOException("Close failed")).when(mockConnection).close();
+        connection.close();
+        verify(mockConnection, times(1)).close();
+    }
+
+    @Test
+    public void close_withRuntimeException_handlesGracefully()
+            throws IOException
+    {
+        Mockito.doThrow(new RuntimeException("Close failed")).when(mockConnection).close();
+        connection.close();
+        verify(mockConnection, times(1)).close();
+    }
+
+    @Test
+    public void close_withNullConnection_handlesGracefully()
+    {
+        HBaseConnection nullConn = new HBaseConnectionStub(null, maxRetries);
+        nullConn.close();
+    }
+
+    @Test
+    public void callWithReconnectAndRetry_withInterruptedException_throwsRuntimeException()
+            throws IOException
+    {
+        logger.info("callWithReconnectAndRetry_withInterruptedException_throwsRuntimeException: enter");
+        when(mockConnection.getAdmin()).thenAnswer((Answer) invocation -> {
+            throw new InterruptedException("Interrupted");
+        });
+        try {
+            connection.listNamespaceDescriptors();
+            fail("Expected RuntimeException was not thrown");
+        }
+        catch (RuntimeException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertTrue("Exception should be caused by InterruptedException or contain interruption message", 
+                    (ex.getCause() != null && ex.getCause() instanceof InterruptedException) ||
+                    (ex.getMessage() != null && ex.getMessage().contains("Interrupted")));
+        }
+        logger.info("callWithReconnectAndRetry_withInterruptedException_throwsRuntimeException: exit");
+    }
+
+    @Test
+    public void getConnection_withNullConnection_throwsRuntimeException()
+    {
+        HBaseConnection nullConn = new HBaseConnectionStub(null, maxRetries);
+        try {
+            nullConn.listNamespaceDescriptors();
+            fail("Expected RuntimeException was not thrown");
+        }
+        catch (RuntimeException ex) {
+            assertNotNull("Exception should not be null", ex);
+            // The exception may be wrapped by callWithReconnectAndRetry, so check for either message
+            assertTrue("Exception should indicate invalid connection or exhausted retries", 
+                    ex.getMessage() != null && (ex.getMessage().contains("Invalid connection") ||
+                    ex.getMessage().contains("Exhausted hbase retries")));
+        }
+        catch (IOException ex) {
+            fail("Should not throw IOException, got: " + ex.getMessage());
+        }
+    }
+
+    @Test
+    public void reconnect_withException_marksConnectionUnhealthy()
+            throws IOException
+    {
+        logger.info("reconnect_withException_marksConnectionUnhealthy: enter");
+        HBaseConnectionStub stub = new HBaseConnectionStub(mockConnection, maxRetries) {
+            @Override
+            protected synchronized Connection connect(Configuration config)
+            {
+                throw new RuntimeException("Connection failed");
+            }
+        };
+        when(mockConnection.getAdmin()).thenThrow(new RuntimeException("Retryable"));
+        try {
+            stub.listNamespaceDescriptors();
+            fail("Expected RuntimeException was not thrown");
+        }
+        catch (RuntimeException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertFalse("Connection should be unhealthy", stub.isHealthy());
+            assertEquals("Retries should be maxed out", maxRetries, stub.getRetries());
+        }
+        logger.info("reconnect_withException_marksConnectionUnhealthy: exit");
     }
 
     /**

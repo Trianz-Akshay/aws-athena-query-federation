@@ -47,6 +47,9 @@ import static com.amazonaws.athena.connectors.hbase.TestUtils.makeResult;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
@@ -145,5 +148,140 @@ public class HbaseSchemaUtilsTest
         String[] parts = HbaseSchemaUtils.extractColumnParts("family:column");
         assertEquals("family", parts[0]);
         assertEquals("column", parts[1]);
+    }
+
+    @Test
+    public void coerceType_withNullValue_returnsNull()
+    {
+        // Test that null input is handled correctly without throwing exceptions
+        Object result = HbaseSchemaUtils.coerceType(false, Types.MinorType.VARCHAR.getType(), null);
+        assertNull("Result should be null when value is null", result);
+        
+        // Verify it works with different types as well
+        Object result2 = HbaseSchemaUtils.coerceType(true, Types.MinorType.BIGINT.getType(), null);
+        assertNull("Result should be null when value is null for native type", result2);
+    }
+
+    @Test
+    public void coerceType_withNativeBit_returnsBoolean()
+    {
+        byte[] trueValue = new byte[] {1};
+        byte[] falseValue = new byte[] {0};
+        assertEquals("True value should return true", true, coerceType(true, Types.MinorType.BIT.getType(), trueValue));
+        assertEquals("False value should return false", false, coerceType(true, Types.MinorType.BIT.getType(), falseValue));
+    }
+
+    @Test
+    public void coerceType_withStringBit_returnsBoolean()
+    {
+        assertEquals("True string should return true", true, coerceType(false, Types.MinorType.BIT.getType(), "true".getBytes()));
+        assertEquals("False string should return false", false, coerceType(false, Types.MinorType.BIT.getType(), "false".getBytes()));
+    }
+
+    @Test
+    public void toBytes_withNullValue_returnsNull()
+    {
+        // Test that null input is handled correctly without throwing exceptions
+        byte[] result = HbaseSchemaUtils.toBytes(false, null);
+        assertNull("Result should be null when value is null", result);
+        
+        // Verify it works with native storage as well
+        byte[] result2 = HbaseSchemaUtils.toBytes(true, null);
+        assertNull("Result should be null when value is null for native storage", result2);
+    }
+
+    @Test
+    public void toBytes_withByteArray_returnsSame()
+    {
+        byte[] input = "test".getBytes();
+        byte[] result = toBytes(false, input);
+        assertArrayEquals("Byte array should return same array", input, result);
+    }
+
+    @Test
+    public void toBytes_withString_returnsBytes()
+    {
+        String input = "test";
+        byte[] result = toBytes(false, input);
+        assertArrayEquals("String should be converted to bytes", input.getBytes(), result);
+    }
+
+    @Test
+    public void toBytes_withText_returnsBytes()
+    {
+        org.apache.arrow.vector.util.Text input = new org.apache.arrow.vector.util.Text("test");
+        byte[] result = toBytes(false, input);
+        assertArrayEquals("Text should be converted to bytes", "test".getBytes(), result);
+    }
+
+    @Test
+    public void toBytes_withNativeInteger_returnsBytes()
+    {
+        assertToBytesNativeType(123, 4, "Integer should be 4 bytes");
+    }
+
+    @Test
+    public void toBytes_withNativeLong_returnsBytes()
+    {
+        assertToBytesNativeType(12345L, 8, "Long should be 8 bytes");
+    }
+
+    @Test
+    public void toBytes_withNativeFloat_returnsBytes()
+    {
+        assertToBytesNativeType(1.23F, 4, "Float should be 4 bytes");
+    }
+
+    @Test
+    public void toBytes_withNativeDouble_returnsBytes()
+    {
+        assertToBytesNativeType(1.23D, 8, "Double should be 8 bytes");
+    }
+
+    @Test
+    public void toBytes_withNativeBoolean_returnsBytes()
+    {
+        assertToBytesNativeType(true, 1, "Boolean should be 1 byte");
+    }
+
+    private void assertToBytesNativeType(Object input, int expectedLength, String message)
+    {
+        byte[] result = toBytes(true, input);
+        assertNotNull("Result should not be null", result);
+        assertEquals(message, expectedLength, result.length);
+    }
+
+    @Test
+    public void toBytes_withNonNativeInteger_returnsStringBytes()
+    {
+        Integer input = 123;
+        byte[] result = toBytes(false, input);
+        assertArrayEquals("Non-native integer should be converted to string bytes", "123".getBytes(), result);
+    }
+
+    @Test
+    public void coerceType_withUnsupportedType_throwsIllegalArgumentException()
+    {
+        try {
+            coerceType(false, Types.MinorType.TIMESTAMPMILLI.getType(), "test".getBytes());
+            fail("Expected IllegalArgumentException was not thrown");
+        }
+        catch (IllegalArgumentException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertTrue("Exception message should contain not supported", ex.getMessage().contains("not supported"));
+        }
+    }
+
+    @Test
+    public void toBytes_withUnsupportedType_throwsRuntimeException()
+    {
+        try {
+            toBytes(true, new Object());
+            fail("Expected RuntimeException was not thrown");
+        }
+        catch (RuntimeException ex) {
+            assertNotNull("Exception should not be null", ex);
+            assertTrue("Exception message should contain Unsupported", ex.getMessage().contains("Unsupported"));
+        }
     }
 }

@@ -149,6 +149,31 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
     {
         return orderByClause;
     }
+    
+    public T withConjuncts(Schema schema, Constraints constraints, Split split)
+    {
+        JdbcPredicateBuilder predicateBuilder = createPredicateBuilder();
+        if (predicateBuilder != null) {
+            this.conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, this.parameterValues, split);
+        }
+        else {
+            this.conjuncts = new ArrayList<>();
+        }
+        
+        // Add partition clauses if applicable
+        List<String> partitionClauses = getPartitionWhereClauses(split);
+        if (!partitionClauses.isEmpty()) {
+            this.conjuncts.addAll(partitionClauses);
+        }
+        return (T) this;
+    }
+    
+    protected abstract JdbcPredicateBuilder createPredicateBuilder();
+    
+    protected List<String> getPartitionWhereClauses(Split split)
+    {
+        return new ArrayList<>();
+    }
 
     public T withConjuncts(Schema schema, Constraints constraints, Split split)
     {
@@ -178,6 +203,14 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
     public String getLimitClause()
     {
         return limitClause;
+    }
+    
+    public T withLimitClause(Constraints constraints)
+    {
+        if (constraints.getLimit() > 0) {
+            this.limitClause = " LIMIT " + constraints.getLimit();
+        }
+        return (T) this;
     }
 
     public T withLimitClause(Constraints constraints)

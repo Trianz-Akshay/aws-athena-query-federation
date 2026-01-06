@@ -134,7 +134,7 @@ public class SqlServerQueryBuilderTest
         SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
-        builder.withLimitClause();
+        builder.withLimitClause(createEmptyConstraints());
 
         String sql = builder.build();
         
@@ -189,7 +189,7 @@ public class SqlServerQueryBuilderTest
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
         builder.withOrderByClause(constraints);
-        builder.withLimitClause();
+        builder.withLimitClause(createEmptyConstraints());
 
         String sql = builder.build();
         
@@ -322,5 +322,32 @@ public class SqlServerQueryBuilderTest
     {
         return new Constraints(new HashMap<>(), Collections.emptyList(), orderByFields, DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
     }
-}
+    @Test
+    public void build_WithPartitionProperties_GeneratesPartitionClause()
+    {
+        Map<String, String> splitProperties = new HashMap<>();
+        splitProperties.put("PARTITION_FUNCTION", "pf_test");
+        splitProperties.put("PARTITIONING_COLUMN", "col_test");
+        splitProperties.put("partition_number", "1");
+        
+        Split splitWithPartition = mock(Split.class);
+        when(splitWithPartition.getProperties()).thenReturn(splitProperties);
+        when(splitWithPartition.getProperty("PARTITION_FUNCTION")).thenReturn("pf_test");
+        when(splitWithPartition.getProperty("PARTITIONING_COLUMN")).thenReturn("col_test");
+        when(splitWithPartition.getProperty("partition_number")).thenReturn("1");
 
+        SqlServerQueryBuilder builder = queryFactory.createQueryBuilder();
+        builder.withProjection(testSchema, splitWithPartition);
+        builder.withTableName(TEST_TABLE);
+        builder.withConjuncts(testSchema, createEmptyConstraints(), splitWithPartition);
+
+        String sql = builder.build();
+
+        assertNotNull("SQL should not be null", sql);
+        assertTrue("SQL should contain partition clause", sql.contains("$PARTITION.pf_test(col_test) = 1"));
+    }
+    private Constraints createEmptyConstraints()
+    {
+        return new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
+    }
+}

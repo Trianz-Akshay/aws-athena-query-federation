@@ -87,8 +87,8 @@ public class OracleMetadataHandler
         extends JdbcMetadataHandler
 {
     static final String GET_PARTITIONS_QUERY = "Select DISTINCT PARTITION_NAME as \"partition_name\" FROM USER_TAB_PARTITIONS where table_name= ?";
-    static final String BLOCK_PARTITION_COLUMN_NAME = "PARTITION_NAME".toLowerCase();
-    static final String ALL_PARTITIONS = "0";
+    public static final String BLOCK_PARTITION_COLUMN_NAME = "partition_name";
+    public static final String ALL_PARTITIONS = "0";
     static final String PARTITION_COLUMN_NAME = "PARTITION_NAME".toLowerCase();
     private static final Logger LOGGER = LoggerFactory.getLogger(OracleMetadataHandler.class);
     private static final int MAX_SPLITS_PER_REQUEST = 1000_000;

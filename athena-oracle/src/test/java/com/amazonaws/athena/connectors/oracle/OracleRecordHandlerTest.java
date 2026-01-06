@@ -98,11 +98,10 @@ public class OracleRecordHandlerTest
         this.connection = Mockito.mock(Connection.class);
         this.jdbcConnectionFactory = Mockito.mock(JdbcConnectionFactory.class);
         Mockito.when(this.jdbcConnectionFactory.getConnection(nullable(CredentialsProvider.class))).thenReturn(this.connection);
-        jdbcSplitQueryBuilder = new OracleQueryStringBuilder(ORACLE_QUOTE_CHARACTER, new OracleFederationExpressionParser(ORACLE_QUOTE_CHARACTER));
         final DatabaseConnectionConfig databaseConnectionConfig = new DatabaseConnectionConfig(TEST_CATALOG, ORACLE_NAME,
                 "oracle://jdbc:oracle:thin:username/password@//127.0.0.1:1521/orcl");
 
-        this.oracleRecordHandler = new OracleRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, com.google.common.collect.ImmutableMap.of());
+        this.oracleRecordHandler = new OracleRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, athena, jdbcConnectionFactory, com.google.common.collect.ImmutableMap.of());
     }
 
     @Test
@@ -166,7 +165,7 @@ public class OracleRecordHandlerTest
 
         Mockito.when(constraints.getLimit()).thenReturn(5L);
 
-        String expectedSql = "SELECT \"testCol1\", \"testCol2\", \"testCol3\", \"testCol4\", \"testCol5\", \"testCol6\", \"testCol7\", \"testCol8\", \"testCol9\", \"testCol10\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  WHERE (\"testCol1\" IN (?,?)) AND ((\"testCol2\" >= ? AND \"testCol2\" < ?)) AND ((\"testCol3\" > ? AND \"testCol3\" <= ?)) AND (\"testCol4\" = ?) AND (\"testCol5\" = ?) AND (\"testCol6\" = ?) AND (\"testCol7\" = ?) AND (\"testCol8\" = ?) AND (\"testCol9\" = ?) AND (\"testCol10\" = ?) FETCH FIRST 5 ROWS ONLY ";
+        String expectedSql = "SELECT \"testCol1\", \"testCol2\", \"testCol3\", \"testCol4\", \"testCol5\", \"testCol6\", \"testCol7\", \"testCol8\", \"testCol9\", \"testCol10\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  WHERE (\"testCol1\" IN (?,?)) AND ((\"testCol2\" >= ? AND \"testCol2\" < ?)) AND ((\"testCol3\" > ? AND \"testCol3\" <= ?)) AND (\"testCol4\" = ?) AND (\"testCol5\" = ?) AND (\"testCol6\" = ?) AND (\"testCol7\" = ?) AND (\"testCol8\" = ?) AND (\"testCol9\" = ?) AND (\"testCol10\" = ?)  FETCH FIRST 5 ROWS ONLY";
         PreparedStatement expectedPreparedStatement = Mockito.mock(PreparedStatement.class);
         Mockito.when(this.connection.prepareStatement(Mockito.eq(expectedSql))).thenReturn(expectedPreparedStatement);
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
@@ -263,7 +262,7 @@ public class OracleRecordHandlerTest
         Split split = createMockSplit();
         Constraints constraints = createConstraintsWithLimit(LIMIT_10);
 
-        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_10 + " ROWS ONLY ";
+        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_10 + " ROWS ONLY";
         PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
@@ -294,7 +293,7 @@ public class OracleRecordHandlerTest
                 null
         );
 
-        String expectedSql = "SELECT \"id\", \"name\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  ORDER BY \"value\" DESC NULLS LAST, \"name\" ASC NULLS LAST";
+        String expectedSql = "SELECT \"id\", \"name\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0) ORDER BY \"value\" DESC NULLS LAST, \"name\" ASC NULLS LAST";
         PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
@@ -311,7 +310,7 @@ public class OracleRecordHandlerTest
         Split split = createMockSplit();
         Constraints constraints = createConstraintsWithLimit(LIMIT_5);
         
-        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_5 + " ROWS ONLY ";
+        String expectedSql = "SELECT \"id\", \"value\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  FETCH FIRST " + LIMIT_5 + " ROWS ONLY";
         PreparedStatement expectedPreparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement preparedStatement = this.oracleRecordHandler.buildSplitSql(this.connection, "testCatalogName", tableName, schema, constraints, split);
@@ -453,7 +452,7 @@ public class OracleRecordHandlerTest
                 null
         );
 
-        String expectedSql = "SELECT \"" + COL_ID + "\", \"" + COL_NAME + "\" FROM \"testSchema\".\"testTable\" PARTITION (p0) ";
+        String expectedSql = "SELECT \"" + COL_ID + "\", \"" + COL_NAME + "\" FROM \"testSchema\".\"testTable\" PARTITION (p0)";
         PreparedStatement preparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement result = this.oracleRecordHandler.buildSplitSql(this.connection, TEST_CATALOG, tableName, schema, constraints, split);
@@ -481,7 +480,7 @@ public class OracleRecordHandlerTest
                 null
         );
 
-        String expectedSql = "SELECT \"" + COL_ID + "\", \"" + COL_NAME + "\" FROM \"testSchema\".\"testTable\" PARTITION (p0)  ORDER BY \"" + COL_ID + "\" ASC NULLS LAST, \"" + COL_NAME + "\" DESC NULLS LAST";
+        String expectedSql = "SELECT \"" + COL_ID + "\", \"" + COL_NAME + "\" FROM \"testSchema\".\"testTable\" PARTITION (p0) ORDER BY \"" + COL_ID + "\" ASC NULLS LAST, \"" + COL_NAME + "\" DESC NULLS LAST";
         PreparedStatement preparedStatement = createMockPreparedStatement(expectedSql);
 
         PreparedStatement result = this.oracleRecordHandler.buildSplitSql(this.connection, TEST_CATALOG, tableName, schema, constraints, split);

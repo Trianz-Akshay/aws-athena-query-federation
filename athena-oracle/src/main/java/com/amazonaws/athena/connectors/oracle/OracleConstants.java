@@ -24,6 +24,8 @@ public final class OracleConstants
     public static final String ORACLE_NAME = "oracle";
     public static final String ORACLE_DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     public static final int ORACLE_DEFAULT_PORT = 1521;
+    public static final String BLOCK_PARTITION_COLUMN_NAME = "PARTITION_NAME".toLowerCase();
+    public static final String ALL_PARTITIONS = "0";
 
     private OracleConstants() {}
 }

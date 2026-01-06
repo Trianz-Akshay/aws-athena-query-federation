@@ -137,10 +137,43 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
     {
         return orderByClause;
     }
+    
+    public T withConjuncts(Schema schema, Constraints constraints, Split split)
+    {
+        JdbcPredicateBuilder predicateBuilder = createPredicateBuilder();
+        if (predicateBuilder != null) {
+            this.conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, this.parameterValues, split);
+        }
+        else {
+            this.conjuncts = new ArrayList<>();
+        }
+        
+        // Add partition clauses if applicable
+        List<String> partitionClauses = getPartitionWhereClauses(split);
+        if (!partitionClauses.isEmpty()) {
+            this.conjuncts.addAll(partitionClauses);
+        }
+        return (T) this;
+    }
+    
+    protected abstract JdbcPredicateBuilder createPredicateBuilder();
+    
+    protected List<String> getPartitionWhereClauses(Split split)
+    {
+        return new ArrayList<>();
+    }
 
     public String getLimitClause()
     {
         return limitClause;
+    }
+    
+    public T withLimitClause(Constraints constraints)
+    {
+        if (constraints.getLimit() > 0) {
+            this.limitClause = " LIMIT " + constraints.getLimit();
+        }
+        return (T) this;
     }
 
     public String build()
@@ -154,13 +187,17 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
 
     protected String quote(final String identifier)
     {
-        if (identifier == null) {
-            return null;
-        }
-        String name = identifier.replace(quoteChar, quoteChar + quoteChar);
-        return quoteChar + name + quoteChar;
+        return JdbcSqlUtils.quoteIdentifier(identifier, quoteChar);
     }
 
+    /**
+     * Extracts ORDER BY clause from constraints.
+     * Subclasses can override this for database-specific syntax.
+     * Default implementation uses standard SQL NULLS FIRST/NULLS LAST.
+     *
+     * @param constraints The query constraints
+     * @return The ORDER BY clause string, or empty string if no ordering
+     */
     protected String extractOrderByClause(Constraints constraints)
     {
         List<OrderByField> orderByFields = constraints.getOrderByClause();

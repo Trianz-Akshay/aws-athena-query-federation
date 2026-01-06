@@ -74,7 +74,7 @@ public class SqlServerSqlUtils
                 .withProjection(schema, split)
                 .withConjuncts(schema, constraints, split)
                 .withOrderByClause(constraints)
-                .withLimitClause()
+                .withLimitClause(constraints)
                 .build();
 
         // Copy the parameter values from the builder to the provided list

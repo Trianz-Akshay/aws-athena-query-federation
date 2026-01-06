@@ -152,10 +152,6 @@ public abstract class JdbcPredicateBuilder
 
     protected String quote(final String identifier)
     {
-        if (identifier == null) {
-            return null;
-        }
-        String name = identifier.replace(quoteChar, quoteChar + quoteChar);
-        return quoteChar + name + quoteChar;
+        return JdbcSqlUtils.quoteIdentifier(identifier, quoteChar);
     }
 }

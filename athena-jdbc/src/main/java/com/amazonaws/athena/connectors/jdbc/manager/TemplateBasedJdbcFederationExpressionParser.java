@@ -24,7 +24,6 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.functions.Operator
 import com.amazonaws.athena.connector.lambda.domain.predicate.functions.StandardFunctions;
 import com.amazonaws.athena.connector.lambda.exceptions.AthenaConnectorException;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.commons.lang3.NotImplementedException;
 import software.amazon.awssdk.services.glue.model.ErrorDetails;
 import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 
@@ -136,7 +135,7 @@ public abstract class TemplateBasedJdbcFederationExpressionParser extends JdbcFe
                 clause = JdbcSqlUtils.renderTemplate(factory, "like_expression", Map.of("column", arguments.get(0), "pattern", arguments.get(1)));
                 break;
             case MODULUS_FUNCTION_NAME:
-                clause = JdbcSqlUtils.renderTemplate(factory, "function_call_2args", Map.of("functionName", "MOD", "arg1", arguments.get(0), "arg2", arguments.get(1)));
+                clause = JdbcSqlUtils.renderTemplate(factory, "join_expression", Map.of("items", arguments, "separator", " % "));
                 break;
             case MULTIPLY_FUNCTION_NAME:
                 clause = JdbcSqlUtils.renderTemplate(factory, "join_expression", Map.of("items", arguments, "separator", " * "));
@@ -160,7 +159,8 @@ public abstract class TemplateBasedJdbcFederationExpressionParser extends JdbcFe
                 clause = JdbcSqlUtils.renderTemplate(factory, "join_expression", Map.of("items", arguments, "separator", " - "));
                 break;
             default:
-                throw new NotImplementedException("The function " + functionName.getFunctionName() + " does not have an implementation");
+                throw new AthenaConnectorException("The function " + functionName.getFunctionName() + " does not have an implementation",
+                        ErrorDetails.builder().errorCode(FederationSourceErrorCode.OPERATION_NOT_SUPPORTED_EXCEPTION.toString()).build());
         }
         if (clause == null) {
             return "";

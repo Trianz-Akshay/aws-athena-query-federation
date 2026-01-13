@@ -73,6 +73,12 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
         this.tableName = tableName.getTableName();
         return (T) this;
     }
+    
+    public T withPartitionClause(String partitionClause)
+    {
+        this.partitionClause = partitionClause;
+        return (T) this;
+    }
 
     public T withPartitionClause(String partitionClause)
     {
@@ -133,6 +139,11 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
     public String getTableName()
     {
         return quote(tableName);
+    }
+    
+    public String getPartitionClause()
+    {
+        return (partitionClause != null && !partitionClause.isEmpty()) ? partitionClause : null;
     }
 
     public String getPartitionClause()

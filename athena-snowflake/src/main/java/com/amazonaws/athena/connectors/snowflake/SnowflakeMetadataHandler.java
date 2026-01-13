@@ -104,7 +104,6 @@ import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.U
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.MAX_PARTITION_COUNT;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SINGLE_SPLIT_LIMIT_COUNT;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_NAME;
-import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_EXPORT_BUCKET;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_OBJECT_KEY;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_QUERY_ID;
@@ -147,7 +146,6 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
     public static final String QUERY_ID = "queryId";
     public static final String PREPARED_STMT = "preparedStmt";
     private S3Client amazonS3;
-    SnowflakeQueryStringBuilder snowflakeQueryStringBuilder = new SnowflakeQueryStringBuilder(SNOWFLAKE_QUOTE_CHARACTER, new SnowflakeFederationExpressionParser(SNOWFLAKE_QUOTE_CHARACTER));
     static final Map<String, ArrowType> STRING_ARROW_TYPE_MAP = com.google.common.collect.ImmutableMap.of(
             "INTEGER", (ArrowType) Types.MinorType.INT.getType(),
             "DATE", (ArrowType) Types.MinorType.DATEDAY.getType(),
@@ -371,10 +369,10 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
                     "ENABLED = TRUE " +
                     "STORAGE_AWS_ROLE_ARN = %s " +
                     "STORAGE_ALLOWED_LOCATIONS = (%s);",
-                    snowflakeQueryStringBuilder.quote(integrationName),
-                    snowflakeQueryStringBuilder.singleQuote(roleArn),
-                    snowflakeQueryStringBuilder.singleQuote("s3://" + s3ExportBucket.replace("'", "''") + "/"));
-            
+                    SnowflakeSqlUtils.quote(integrationName),
+                    SnowflakeSqlUtils.singleQuote(roleArn),
+                    SnowflakeSqlUtils.singleQuote("s3://" + s3ExportBucket.replace("'", "''") + "/"));
+
             try (Statement stmt = connection.createStatement()) {
                 LOGGER.debug("Create Integration query: {}", createIntegrationQuery);
                 stmt.execute(createIntegrationQuery);
@@ -390,8 +388,9 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
             generatedSql = buildQueryPassthroughSql(constraints);
         }
         else {
-            generatedSql = snowflakeQueryStringBuilder.buildSqlString(connection, catalog, tableName.getSchemaName(), 
-                    tableName.getTableName(), schemaName, constraints, null);
+            // Use StringTemplate-based query building with embedded values for S3 export
+            TableName tableNameForQuery = new TableName(tableName.getSchemaName(), tableName.getTableName());
+            generatedSql = SnowflakeSqlUtils.buildSqlWithEmbeddedValues(tableNameForQuery, schemaName, constraints, null);
         }
 
         // Escape special characters in path components
@@ -410,7 +409,7 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
                 "HEADER = TRUE FILE_FORMAT = (TYPE = 'PARQUET', COMPRESSION = 'SNAPPY') MAX_FILE_SIZE = 16777216",
                 s3Path,
                 generatedSql,
-                snowflakeQueryStringBuilder.quote(escapedIntegration));
+                SnowflakeSqlUtils.quote(escapedIntegration));
 
         LOGGER.info("Snowflake Copy Statement: {} for queryId: {}", snowflakeExportQuery, queryID);
 

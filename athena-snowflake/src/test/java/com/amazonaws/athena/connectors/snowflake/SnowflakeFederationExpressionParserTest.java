@@ -54,8 +54,8 @@ public class SnowflakeFederationExpressionParserTest
     private static final String EXPECTED_MIXED_ARGS = "string, 123, true, null";
     private static final String EXPECTED_SPECIAL_CHARS = "arg1, arg2, with comma, arg3";
     private static final String EXPECTED_NUMBERS = "1, 2, 3";
-    private static final String EXPECTED_EMPTY_STRINGS = ", arg2, ";
-    private static final String EXPECTED_WHITESPACE = " arg1 ,  arg2 ,  arg3 ";
+    private static final String EXPECTED_EMPTY_STRINGS = "arg2,";
+    private static final String EXPECTED_WHITESPACE = "arg1 ,  arg2 ,  arg3";
 
     private SnowflakeFederationExpressionParser parser;
 

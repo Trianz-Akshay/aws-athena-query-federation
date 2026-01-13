@@ -50,7 +50,8 @@ import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFact
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcRecordHandler;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.amazonaws.athena.connectors.snowflake.connection.SnowflakeConnectionFactory;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.dataset.file.FileFormat;
@@ -83,7 +84,6 @@ import software.amazon.awssdk.services.glue.model.FederationSourceErrorCode;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.utils.StringUtils;
-import software.amazon.awssdk.utils.Validate;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -92,7 +92,9 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_EXPORT_BUCKET;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_OBJECT_KEY;
@@ -104,11 +106,10 @@ public class SnowflakeRecordHandler extends JdbcRecordHandler
     private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeRecordHandler.class);
     private final JdbcConnectionFactory jdbcConnectionFactory;
     private static final int FETCH_SIZE = 1000;
-    private final JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
 
     /**
      * Instantiates handler to be used by Lambda function directly.
-     * <p>
+     *
      */
     public SnowflakeRecordHandler(java.util.Map<String, String> configOptions)
     {
@@ -126,15 +127,14 @@ public class SnowflakeRecordHandler extends JdbcRecordHandler
     public SnowflakeRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, GenericJdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         this(databaseConnectionConfig, S3Client.create(), SecretsManagerClient.create(), AthenaClient.create(),
-                jdbcConnectionFactory, new SnowflakeQueryStringBuilder(SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER, new SnowflakeFederationExpressionParser(SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER)), configOptions);
+                jdbcConnectionFactory, configOptions);
     }
 
     @VisibleForTesting
-    SnowflakeRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, JdbcSplitQueryBuilder jdbcSplitQueryBuilder, java.util.Map<String, String> configOptions)
+    SnowflakeRecordHandler(DatabaseConnectionConfig databaseConnectionConfig, S3Client amazonS3, SecretsManagerClient secretsManager, AthenaClient athena, JdbcConnectionFactory jdbcConnectionFactory, java.util.Map<String, String> configOptions)
     {
         super(amazonS3, secretsManager, athena, databaseConnectionConfig, jdbcConnectionFactory, configOptions);
         this.jdbcConnectionFactory = jdbcConnectionFactory;
-        this.jdbcSplitQueryBuilder = Validate.notNull(jdbcSplitQueryBuilder, "query builder must not be null");
     }
 
     /**
@@ -437,7 +437,17 @@ public class SnowflakeRecordHandler extends JdbcRecordHandler
                 preparedStatement = buildQueryPassthroughSql(jdbcConnection, constraints);
             }
             else {
-                preparedStatement = jdbcSplitQueryBuilder.buildSql(jdbcConnection, null, tableNameInput.getSchemaName(), tableNameInput.getTableName(), schema, constraints, split);
+                // Use StringTemplate-based query building
+                List<TypeAndValue> parameterValues = new ArrayList<>();
+                String sql = SnowflakeSqlUtils.buildSql(tableNameInput, schema, constraints, split, parameterValues);
+                
+                LOGGER.info("Generated SQL: {}", sql);
+                preparedStatement = jdbcConnection.prepareStatement(sql);
+                
+                // Set parameters for the prepared statement
+                if (!parameterValues.isEmpty()) {
+                    JdbcSqlUtils.setParameters(preparedStatement, parameterValues);
+                }
             }
 
             // Disable fetching all rows.

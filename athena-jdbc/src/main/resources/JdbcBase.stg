@@ -141,7 +141,7 @@ join_expression(items, separator) ::= <%
  *@return A comma-separated list like item1,item2,item3
  */
 comma_separated_list(items) ::= <%
-    <items; separator=",">
+    <items; separator=", ">
 %>
 
 comma_separated_list_with_parentheses(items) ::= <%

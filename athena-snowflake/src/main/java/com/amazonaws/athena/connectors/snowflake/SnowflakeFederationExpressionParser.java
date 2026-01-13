@@ -19,13 +19,20 @@
  */
 package com.amazonaws.athena.connectors.snowflake;
 
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcFederationExpressionParser;
-import com.google.common.base.Joiner;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
+import com.amazonaws.athena.connectors.jdbc.manager.TemplateBasedJdbcFederationExpressionParser;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 import java.util.List;
+import java.util.Map;
 
-public class SnowflakeFederationExpressionParser extends JdbcFederationExpressionParser
+/**
+ * Snowflake implementation of FederationExpressionParser using StringTemplate.
+ * Extends TemplateBasedJdbcFederationExpressionParser which provides the common
+ * template-based implementation for all migrated JDBC connectors.
+ */
+public class SnowflakeFederationExpressionParser extends TemplateBasedJdbcFederationExpressionParser
 {
     public SnowflakeFederationExpressionParser(String quoteChar)
     {
@@ -33,8 +40,22 @@ public class SnowflakeFederationExpressionParser extends JdbcFederationExpressio
     }
 
     @Override
+    protected JdbcQueryFactory getQueryFactory()
+    {
+        return SnowflakeSqlUtils.getQueryFactory();
+    }
+
+    @Override
     public String writeArrayConstructorClause(ArrowType type, List<String> arguments)
     {
-        return Joiner.on(", ").join(arguments);
-    }    
+        // Validate that arguments list does not contain null values
+        if (arguments != null) {
+            for (int i = 0; i < arguments.size(); i++) {
+                if (arguments.get(i) == null) {
+                    throw new NullPointerException("Argument list contains null value at index " + i);
+                }
+            }
+        }
+        return JdbcSqlUtils.renderTemplate(getQueryFactory(), "comma_separated_list", Map.of("items", arguments));
+    }
 }

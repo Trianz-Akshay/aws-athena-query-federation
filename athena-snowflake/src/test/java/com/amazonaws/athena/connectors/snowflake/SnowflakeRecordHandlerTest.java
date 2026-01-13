@@ -48,7 +48,6 @@ import com.amazonaws.athena.connector.lambda.security.LocalKeyFactory;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.GenericJdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcSplitQueryBuilder;
 import com.google.common.io.ByteStreams;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -99,7 +98,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
-import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_EXPORT_BUCKET;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_OBJECT_KEY;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_QUERY_ID;
@@ -205,7 +203,6 @@ public class SnowflakeRecordHandlerTest
     private BlockAllocator allocator;
     private S3BlockSpillReader spillReader;
     private JdbcConnectionFactory jdbcConnectionFactory;
-    private JdbcSplitQueryBuilder jdbcSplitQueryBuilder;
     private S3Client amazonS3;
     private SecretsManagerClient secretsManager;
     private AthenaClient athena;
@@ -236,8 +233,6 @@ public class SnowflakeRecordHandlerTest
         this.spillReader = new S3BlockSpillReader(amazonS3, allocator);
         
         Mockito.when(this.jdbcConnectionFactory.getConnection(nullable(CredentialsProvider.class))).thenReturn(this.connection);
-        this.jdbcSplitQueryBuilder = new SnowflakeQueryStringBuilder(SNOWFLAKE_QUOTE_CHARACTER, 
-            new SnowflakeFederationExpressionParser(SNOWFLAKE_QUOTE_CHARACTER));
         
         setupMockS3Behavior();
     }
@@ -271,7 +266,7 @@ public class SnowflakeRecordHandlerTest
         final DatabaseConnectionConfig databaseConnectionConfig = new DatabaseConnectionConfig(
             TEST_CATALOG, SnowflakeConstants.SNOWFLAKE_NAME, FULL_CONNECTION_STRING);
         this.handler = new SnowflakeRecordHandler(databaseConnectionConfig, amazonS3, secretsManager, 
-            athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, Collections.emptyMap());
+            athena, jdbcConnectionFactory, Collections.emptyMap());
     }
     
     private S3SpillLocation createTestS3SpillLocation() {
@@ -796,7 +791,7 @@ public class SnowflakeRecordHandlerTest
     {
         DatabaseConnectionConfig configWithSecret = createDatabaseConnectionConfig("test-secret");
         
-        SnowflakeRecordHandler handlerWithSecret = new SnowflakeRecordHandler(configWithSecret, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, Collections.emptyMap());
+        SnowflakeRecordHandler handlerWithSecret = new SnowflakeRecordHandler(configWithSecret, amazonS3, secretsManager, athena, jdbcConnectionFactory, Collections.emptyMap());
         
         CredentialsProvider result = handlerWithSecret.getCredentialProvider();
         
@@ -809,7 +804,7 @@ public class SnowflakeRecordHandlerTest
     {
         DatabaseConnectionConfig configWithoutSecret = createDatabaseConnectionConfig(null);
         
-        SnowflakeRecordHandler handlerWithoutSecret = new SnowflakeRecordHandler(configWithoutSecret, amazonS3, secretsManager, athena, jdbcConnectionFactory, jdbcSplitQueryBuilder, Collections.emptyMap());
+        SnowflakeRecordHandler handlerWithoutSecret = new SnowflakeRecordHandler(configWithoutSecret, amazonS3, secretsManager, athena, jdbcConnectionFactory, Collections.emptyMap());
         
         CredentialsProvider result = handlerWithoutSecret.getCredentialProvider();
         
@@ -824,7 +819,7 @@ public class SnowflakeRecordHandlerTest
         S3Client mockS3Client = mock(S3Client.class);
         SnowflakeRecordHandler handlerWithMockS3 = new SnowflakeRecordHandler(
             createDatabaseConnectionConfig(null), mockS3Client, secretsManager, athena, 
-            jdbcConnectionFactory, jdbcSplitQueryBuilder, Collections.emptyMap());
+            jdbcConnectionFactory, Collections.emptyMap());
         
         // Test with a simple URI that doesn't require S3 access
         String testUri = "file:///tmp/test.parquet";
@@ -921,7 +916,7 @@ public class SnowflakeRecordHandlerTest
             Constraints constraints = createConstraints(Collections.emptyMap(), orderBy, 10L);
             Split split = createBasicSplit();
 
-            String expectedSql = "SELECT \"name\", \"score\" FROM \"schema\".\"table\"  ORDER BY \"name\" ASC NULLS FIRST LIMIT 10";
+            String expectedSql = "SELECT \"name\", \"score\" FROM \"schema\".\"table\" ORDER BY \"name\" ASC NULLS FIRST  LIMIT 10";
             executeBuildSplitSqlTest(mockConnection, tableName, schema, constraints, split, expectedSql);
         }
     }
@@ -944,7 +939,7 @@ public class SnowflakeRecordHandlerTest
             Constraints constraints = createConstraints(Collections.emptyMap(), Collections.emptyList(), limitValues);
             Split split = createBasicSplit();
 
-            String expectedSql = "SELECT \"name\" FROM \"schema\".\"table\"  LIMIT 10";
+            String expectedSql = "SELECT \"name\" FROM \"schema\".\"table\"   LIMIT 10";
             executeBuildSplitSqlTestWithContains(mockConnection, tableName, schema, constraints, split, expectedSql);
         }
     }
@@ -983,7 +978,7 @@ public class SnowflakeRecordHandlerTest
                 Constraints constraints = createConstraints(Collections.emptyMap(), orderByClause, DEFAULT_NO_LIMIT);
                 Split split = createBasicSplit();
 
-                String expectedSql = "SELECT \"name\", \"age\", \"salary\" FROM \"schema\".\"table\"  ORDER BY";
+                String expectedSql = "SELECT \"name\", \"age\", \"salary\" FROM \"schema\".\"table\" ORDER BY ";
                 executeBuildSplitSqlTestWithContains(mockConnection, tableName, schema, constraints, split, expectedSql);
             }
         }
@@ -1088,7 +1083,7 @@ public class SnowflakeRecordHandlerTest
             Constraints constraints = createConstraints(summary, Collections.emptyList(), 100L);
             Split split = createBasicSplit();
 
-            String expectedSql = "SELECT \"name\", \"age\", \"salary\", \"hire_date\", \"is_manager\" FROM \"schema\".\"table\"  WHERE (\"name\" IN (?,?,?)) AND ((\"age\" >= ? AND \"age\" < ?)) AND ((\"salary\" > ?)) AND (\"is_manager\" = ?) LIMIT 100";
+            String expectedSql = "SELECT \"name\", \"age\", \"salary\", \"hire_date\", \"is_manager\" FROM \"schema\".\"table\"  WHERE (\"name\" IN (?,?,?)) AND ((\"age\" >= ? AND \"age\" < ?)) AND ((\"salary\" > ?)) AND (\"is_manager\" = ?)   LIMIT 100";
             executeBuildSplitSqlTest(mockConnection, tableName, schema, constraints, split, expectedSql);
         }
     }

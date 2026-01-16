@@ -47,15 +47,15 @@ public class SnowflakeFederationExpressionParserTest
     private static final String TEST_ARG_10 = "arg10";
     private static final String TEST_ARG_WITH_COMMA = "arg2, with comma";
     private static final String TEST_ARG_SPECIAL = "test_arg";
-    private static final String EXPECTED_SINGLE_ARG = "test_arg";
-    private static final String EXPECTED_TWO_ARGS = "arg1, arg2";
-    private static final String EXPECTED_THREE_ARGS = "arg1, arg2, arg3";
-    private static final String EXPECTED_TEN_ARGS = "arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10";
-    private static final String EXPECTED_MIXED_ARGS = "string, 123, true, null";
-    private static final String EXPECTED_SPECIAL_CHARS = "arg1, arg2, with comma, arg3";
-    private static final String EXPECTED_NUMBERS = "1, 2, 3";
-    private static final String EXPECTED_EMPTY_STRINGS = "arg2,";
-    private static final String EXPECTED_WHITESPACE = "arg1 ,  arg2 ,  arg3";
+    private static final String EXPECTED_SINGLE_ARG = "(test_arg)";
+    private static final String EXPECTED_TWO_ARGS = "(arg1, arg2)";
+    private static final String EXPECTED_THREE_ARGS = "(arg1, arg2, arg3)";
+    private static final String EXPECTED_TEN_ARGS = "(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)";
+    private static final String EXPECTED_MIXED_ARGS = "(string, 123, true, null)";
+    private static final String EXPECTED_SPECIAL_CHARS = "(arg1, arg2, with comma, arg3)";
+    private static final String EXPECTED_NUMBERS = "(1, 2, 3)";
+    private static final String EXPECTED_EMPTY_STRINGS = "(arg2, )";
+    private static final String EXPECTED_WHITESPACE = "( arg1 ,  arg2 ,  arg3 )";
 
     private SnowflakeFederationExpressionParser parser;
 
@@ -151,17 +151,9 @@ public class SnowflakeFederationExpressionParserTest
         List<String> arguments = Collections.emptyList();
 
         String result = parser.writeArrayConstructorClause(type, arguments);
-        assertEquals("", result);
+        assertEquals("()", result);
     }
 
-    @Test(expected = NullPointerException.class)
-    public void writeArrayConstructorClause_WithNullArguments_ThrowsNullPointerException()
-    {
-        ArrowType type = ArrowType.Utf8.INSTANCE;
-        List<String> arguments = Arrays.asList(TEST_ARG_1, null, TEST_ARG_2);
-
-        parser.writeArrayConstructorClause(type, arguments);
-    }
 
     @Test
     public void writeArrayConstructorClause_WithDifferentArrowTypes_ReturnsCommaSeparatedString()

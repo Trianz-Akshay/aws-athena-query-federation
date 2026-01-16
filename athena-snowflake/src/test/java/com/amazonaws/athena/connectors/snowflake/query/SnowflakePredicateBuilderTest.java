@@ -86,7 +86,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain column name", conjuncts.get(0).contains("\"intCol\""));
@@ -105,7 +105,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain > operator", conjuncts.get(0).contains(">"));
@@ -126,7 +126,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain IN", conjuncts.get(0).contains("IN"));
@@ -143,7 +143,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain IS NULL", conjuncts.get(0).contains("IS NULL"));
@@ -161,7 +161,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain IS NOT NULL", conjuncts.get(0).contains("IS NOT NULL"));
@@ -179,7 +179,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain OR", conjuncts.get(0).contains("OR"));
@@ -223,7 +223,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("stringCol", STRING_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain stringCol", conjuncts.get(0).contains("\"stringCol\""));
@@ -241,7 +241,7 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("boolCol", BOOLEAN_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
         assertTrue("Conjunct should contain boolCol", conjuncts.get(0).contains("\"boolCol\""));
@@ -264,7 +264,7 @@ public class SnowflakePredicateBuilderTest
         fields.add(Field.nullable("intCol", INT_TYPE));
         fields.add(Field.nullable("stringCol", STRING_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have two conjuncts", 2, conjuncts.size());
         assertTrue("Should contain intCol conjunct", conjuncts.stream().anyMatch(c -> c.contains("\"intCol\"")));
@@ -279,23 +279,18 @@ public class SnowflakePredicateBuilderTest
 
         fields.add(Field.nullable("intCol", INT_TYPE));
 
-        List<String> conjuncts = buildConjuncts(constraintMap, fields);
+        List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         // Should have no conjuncts for value sets, but may have complex expressions
         assertTrue("Conjuncts should be empty or only contain complex expressions", conjuncts.size() >= 0);
     }
 
-    private List<String> buildConjuncts(Map<String, ValueSet> constraintMap, List<Field> fields)
-    {
-        return buildConjuncts(constraintMap, fields, split);
-    }
-
-    private List<String> buildConjuncts(Map<String, ValueSet> constraintMap, List<Field> fields, Split customSplit)
+    private List<String> buildConjuncts(Map<String, ValueSet> constraintMap, List<Field> fields, Split split)
     {
         Constraints constraints = new Constraints(constraintMap, Collections.emptyList(),
                 Collections.emptyList(), DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
         SnowflakePredicateBuilder predicateBuilder = new SnowflakePredicateBuilder();
-        List<String> conjuncts = predicateBuilder.buildConjuncts(fields, constraints, parameterValues, customSplit);
+        List<String> conjuncts = predicateBuilder.buildConjuncts(fields, constraints, parameterValues, split);
         assertNotNull("Conjuncts should not be null", conjuncts);
         return conjuncts;
     }

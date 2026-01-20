@@ -1,6 +1,6 @@
 /*-
  * #%L
- * athena-DataLakeGen2
+ * athena-datalakegen2
  * %%
  * Copyright (C) 2019 - 2025 Amazon Web Services
  * %%
@@ -17,26 +17,24 @@
  * limitations under the License.
  * #L%
  */
-package com.amazonaws.athena.connectors.datalakegen2;
+package com.amazonaws.athena.connectors.datalakegen2.query;
 
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
-import com.amazonaws.athena.connectors.jdbc.manager.TemplateBasedJdbcFederationExpressionParser;
 
 /**
- * DataLakeGen2 implementation of FederationExpressionParser using StringTemplate.
- * Extends TemplateBasedJdbcFederationExpressionParser which provides the common
- * template-based implementation for all migrated JDBC connectors.
+ * Factory for creating DataLakeGen2 query builders with StringTemplate support.
  */
-public class DataLakeGen2FederationExpressionParser extends TemplateBasedJdbcFederationExpressionParser
+public class DataLakeGen2QueryFactory extends JdbcQueryFactory
 {
-    public DataLakeGen2FederationExpressionParser(String quoteChar)
+    private static final String TEMPLATE_FILE = "DataLakeGen2.stg";
+
+    public DataLakeGen2QueryFactory()
     {
-        super(quoteChar);
+        super(TEMPLATE_FILE);
     }
 
-    @Override
-    protected JdbcQueryFactory getQueryFactory()
+    public DataLakeGen2QueryBuilder createQueryBuilder()
     {
-        return DataLakeGen2SqlUtils.getQueryFactory();
+        return new DataLakeGen2QueryBuilder(getQueryTemplate(DataLakeGen2QueryBuilder.getTemplateName()));
     }
 }

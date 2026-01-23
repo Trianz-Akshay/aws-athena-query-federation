@@ -2,14 +2,14 @@
  * #%L
  * athena-datalakegen2
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -77,8 +77,7 @@ public class DataLakeGen2PredicateBuilderTest
     public void buildConjuncts_WithEmptyConstraints_ReturnsEmptyList()
     {
         Schema schema = createSchema(Collections.emptyMap());
-        Constraints constraints = new Constraints(new HashMap<>(), Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(Collections.emptyMap());
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -97,8 +96,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("intCol", rangeSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -122,8 +120,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("intCol", inSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -142,8 +139,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("intCol", nullSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -164,8 +160,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("intCol", notNullSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -190,8 +185,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("stringCol", stringSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         List<TypeAndValue> parameterValues = new ArrayList<>();
         List<String> conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, parameterValues, split);
@@ -210,8 +204,7 @@ public class DataLakeGen2PredicateBuilderTest
         constraintMap.put("intCol", intSet);
 
         Schema schema = createSchema(constraintMap);
-        Constraints constraints = new Constraints(constraintMap, Collections.emptyList(), 
-                Collections.emptyList(), 0, Collections.emptyMap(), null);
+        Constraints constraints = createConstraints(constraintMap);
         
         // Create split with partition column
         Map<String, String> splitProperties = new HashMap<>();
@@ -224,6 +217,12 @@ public class DataLakeGen2PredicateBuilderTest
         
         // Partition column should be filtered out, so no conjuncts should be generated
         assertTrue("Conjuncts should be empty for partition column", conjuncts.isEmpty());
+    }
+
+    private Constraints createConstraints(Map<String, ValueSet> constraintMap)
+    {
+        return new Constraints(constraintMap, Collections.emptyList(), 
+                Collections.emptyList(), 0, Collections.emptyMap(), null);
     }
 
     private Schema createSchema(Map<String, ValueSet> constraintMap)

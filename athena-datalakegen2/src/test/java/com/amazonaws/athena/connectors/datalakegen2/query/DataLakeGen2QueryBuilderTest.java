@@ -2,14 +2,14 @@
  * #%L
  * athena-datalakegen2
  * %%
- * Copyright (C) 2019 - 2025 Amazon Web Services
+ * Copyright (C) 2019 - 2026 Amazon Web Services
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  *      http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -95,12 +95,7 @@ public class DataLakeGen2QueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"id\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"name\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"active\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"score\""));
+        assertSelectQuery(sql, "\"id\"", "\"name\"", "\"active\"", "\"score\"");
         assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM \"test_schema\".\"test_table\""));
         // Partition column should be filtered out
         assertFalse("Partition column should be excluded", sql.contains("\"partition_col\""));
@@ -194,11 +189,9 @@ public class DataLakeGen2QueryBuilderTest
 
         String sql = builder.build();
         
-        assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
+        assertSelectQuery(sql, "\"id\"", "\"name\"", "\"active\"", "\"score\"");
         assertTrue("SQL should contain schema name", sql.contains("test_schema"));
         assertTrue("SQL should contain table name", sql.contains("test_table"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"id\""));
         assertTrue("SQL should contain ORDER BY", sql.contains("ORDER BY"));
         assertFalse("SQL should not contain LIMIT", sql.contains("LIMIT"));
     }
@@ -287,7 +280,7 @@ public class DataLakeGen2QueryBuilderTest
     }
 
     @Test
-    public void withLimitClause_WithLimit_ReturnsEmptyLimitClause()
+    public void getLimitClause_WithLimit_ReturnsEmptyLimitClause()
     {
         Constraints constraints = new Constraints(new HashMap<>(), Collections.emptyList(), 
                 Collections.emptyList(), 50, Collections.emptyMap(), null);
@@ -332,5 +325,14 @@ public class DataLakeGen2QueryBuilderTest
     private Constraints createConstraintsWithOrderBy(List<OrderByField> orderByFields)
     {
         return new Constraints(new HashMap<>(), Collections.emptyList(), orderByFields, DEFAULT_NO_LIMIT, Collections.emptyMap(), null);
+    }
+
+    private void assertSelectQuery(String sql, String... expectedColumns)
+    {
+        assertNotNull("SQL should not be null", sql);
+        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
+        for (String column : expectedColumns) {
+            assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains(column));
+        }
     }
 }

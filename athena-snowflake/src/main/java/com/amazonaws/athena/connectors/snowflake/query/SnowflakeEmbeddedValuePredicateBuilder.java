@@ -25,6 +25,7 @@ import com.amazonaws.athena.connector.lambda.domain.predicate.Range;
 import com.amazonaws.athena.connector.lambda.domain.predicate.SortedRangeSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcPredicateBuilder;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
 import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.amazonaws.athena.connectors.snowflake.SnowflakeSqlUtils;
 import com.google.common.base.Joiner;
@@ -40,6 +41,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
@@ -63,11 +65,6 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
         List<String> builder = new ArrayList<>();
 
         for (Field column : columns) {
-            // Skip partition columns as they are not in the table schema
-            if (split != null && split.getProperties().containsKey(column.getName())) {
-                continue;
-            }
-
             ArrowType type = column.getType();
             if (constraints.getSummary() != null && !constraints.getSummary().isEmpty()) {
                 ValueSet valueSet = constraints.getSummary().get(column.getName());
@@ -89,18 +86,21 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
 
         if (valueSet instanceof SortedRangeSet) {
             if (valueSet.isNone() && valueSet.isNullAllowed()) {
-                return String.format("(%s IS NULL)", quote(columnName));
+                return JdbcSqlUtils.renderTemplate(queryFactory, "null_predicate",
+                        Map.of("columnName", quote(columnName), "isNull", true));
             }
 
             if (valueSet.isNullAllowed()) {
-                disjuncts.add(String.format("(%s IS NULL)", quote(columnName)));
+                disjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "null_predicate",
+                        Map.of("columnName", quote(columnName), "isNull", true)));
             }
-            
+
             List<Range> rangeList = ((SortedRangeSet) valueSet).getOrderedRanges();
             if (rangeList.size() == 1 && !valueSet.isNullAllowed() && rangeList.get(0).getLow().isLowerUnbounded() && rangeList.get(0).getHigh().isUpperUnbounded()) {
-                return String.format("(%s IS NOT NULL)", quote(columnName));
+                return JdbcSqlUtils.renderTemplate(queryFactory, "null_predicate",
+                        Map.of("columnName", quote(columnName), "isNull", false));
             }
-            
+
             for (Range range : valueSet.getRanges().getOrderedRanges()) {
                 if (range.isSingleValue()) {
                     singleValues.add(range.getLow().getValue());
@@ -136,7 +136,8 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
                         }
                     }
                     Preconditions.checkState(!rangeConjuncts.isEmpty());
-                    disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                    disjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "range_predicate",
+                            Map.of("conjuncts", rangeConjuncts)));
                 }
             }
 
@@ -155,12 +156,13 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
                         val.add(formattedValue.toString());
                     }
                 }
-                String values = Joiner.on(",").join(val);
-                disjuncts.add(quote(columnName) + " IN (" + values + ")");
+                // Build IN predicate directly: column IN ('val1','val2','val3')
+                String inValues = Joiner.on(",").join(val);
+                disjuncts.add(quote(columnName) + " IN (" + inValues + ")");
             }
         }
-
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+        return JdbcSqlUtils.renderTemplate(queryFactory, "or_predicate",
+                Map.of("disjuncts", disjuncts));
     }
 
     private String toPredicate(String columnName, String operator, Object value, ArrowType type)
@@ -173,6 +175,7 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
         else {
             valueStr = formattedValue.toString();
         }
+        // Build comparison predicate directly: "column" > 'value'
         return quote(columnName) + " " + operator + " " + valueStr;
     }
 

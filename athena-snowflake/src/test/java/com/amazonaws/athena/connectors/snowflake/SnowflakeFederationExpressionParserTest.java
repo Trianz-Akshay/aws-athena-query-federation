@@ -154,7 +154,6 @@ public class SnowflakeFederationExpressionParserTest
         assertEquals("()", result);
     }
 
-
     @Test
     public void writeArrayConstructorClause_WithDifferentArrowTypes_ReturnsCommaSeparatedString()
     {

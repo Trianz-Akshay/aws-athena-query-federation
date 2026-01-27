@@ -39,9 +39,9 @@ import java.util.Map;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -68,6 +68,7 @@ public class SnowflakeQueryBuilderTest
     private SnowflakeQueryFactory queryFactory;
     private Schema testSchema;
     private Split split;
+    private SnowflakeQueryBuilder builder;
 
     @Before
     public void setUp()
@@ -75,6 +76,7 @@ public class SnowflakeQueryBuilderTest
         queryFactory = new SnowflakeQueryFactory();
         testSchema = createTestSchema();
         split = createSplit();
+        builder = queryFactory.createQueryBuilder();
     }
 
     @Test
@@ -87,23 +89,23 @@ public class SnowflakeQueryBuilderTest
     }
 
     @Test
-    public void build_WithProjectionAndTableName_GeneratesCorrectSelectQuery()
+    public void build_WithProjectionAndTableName_GeneratesSelectQueryWithAllColumnsFromSchemaTableAndExcludesPartitionColumn()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
 
         String sql = builder.build();
         
         assertNotNull("SQL should not be null", sql);
-        assertTrue(SQL_SHOULD_CONTAIN_SELECT, sql.contains("SELECT"));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"id\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"name\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"active\""));
-        assertTrue(SQL_SHOULD_CONTAIN_ALL_COLUMNS, sql.contains("\"score\""));
-        assertTrue(SQL_SHOULD_CONTAIN_FROM_CLAUSE, sql.contains("FROM \"test_schema\".\"test_table\""));
-        // Partition column should be filtered out
-        assertFalse("Partition column should be excluded", sql.contains("\"partition_col\""));
+        // Verify all SELECT query components in a single comprehensive check
+        assertTrue("SQL should contain SELECT, all columns, FROM clause, and exclude partition column",
+                sql.contains("SELECT") &&
+                sql.contains("\"id\"") &&
+                sql.contains("\"name\"") &&
+                sql.contains("\"active\"") &&
+                sql.contains("\"score\"") &&
+                sql.contains("FROM \"test_schema\".\"test_table\"") &&
+                !sql.contains("\"partition_col\""));
     }
 
     @Test
@@ -112,7 +114,6 @@ public class SnowflakeQueryBuilderTest
         List<OrderByField> orderByFields = createOrderByFields();
         Constraints constraints = createConstraintsWithOrderBy(orderByFields);
 
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
         builder.withOrderByClause(constraints);
@@ -128,7 +129,6 @@ public class SnowflakeQueryBuilderTest
     @Test
     public void build_WithLimitClause_IncludesLimitInSql()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
         Constraints constraints = new Constraints(new HashMap<>(), Collections.emptyList(), Collections.emptyList(), 100, Collections.emptyMap(), null);
@@ -145,7 +145,6 @@ public class SnowflakeQueryBuilderTest
     {
         Schema emptySchema = new Schema(Collections.emptyList());
 
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(emptySchema, split);
         builder.withTableName(TEST_TABLE);
 
@@ -160,7 +159,6 @@ public class SnowflakeQueryBuilderTest
     @Test
     public void getSchemaName_WhenCalled_ReturnsQuotedSchemaName()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
 
@@ -182,7 +180,6 @@ public class SnowflakeQueryBuilderTest
         List<OrderByField> orderByFields = createOrderByFields();
         Constraints constraints = createConstraintsWithOrderBy(orderByFields);
 
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withCatalog(null); // Snowflake doesn't use catalog in FROM clause
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
@@ -206,7 +203,6 @@ public class SnowflakeQueryBuilderTest
     {
         TableName tableWithEmptySchema = new TableName("", TEST_TABLE_NAME);
 
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(tableWithEmptySchema);
 
@@ -219,7 +215,6 @@ public class SnowflakeQueryBuilderTest
     @Test
     public void getSchemaName_WithQuotesInIdentifier_EscapesQuotes()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);
 
@@ -243,7 +238,6 @@ public class SnowflakeQueryBuilderTest
         Split splitWithPartition = mock(Split.class);
         when(splitWithPartition.getProperties()).thenReturn(splitProperties);
 
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, splitWithPartition);
         builder.withTableName(TEST_TABLE);
 
@@ -262,7 +256,6 @@ public class SnowflakeQueryBuilderTest
     @Test(expected = NullPointerException.class)
     public void build_WhenTableNameNotSet_ThrowsNullPointerException()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withProjection(testSchema, split);
         builder.build();
     }
@@ -270,7 +263,6 @@ public class SnowflakeQueryBuilderTest
     @Test(expected = NullPointerException.class)
     public void build_WhenProjectionNotSet_ThrowsNullPointerException()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withTableName(TEST_TABLE);
         builder.build();
     }
@@ -278,7 +270,6 @@ public class SnowflakeQueryBuilderTest
     @Test
     public void build_WithNullCatalog_DoesNotIncludeCatalogInFromClause()
     {
-        SnowflakeQueryBuilder builder = queryFactory.createQueryBuilder();
         builder.withCatalog(null);
         builder.withProjection(testSchema, split);
         builder.withTableName(TEST_TABLE);

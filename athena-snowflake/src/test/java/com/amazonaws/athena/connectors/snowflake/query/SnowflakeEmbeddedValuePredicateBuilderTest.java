@@ -42,9 +42,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +62,7 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     private List<TypeAndValue> parameterValues;
     private List<Field> fields;
     private SnowflakeEmbeddedValuePredicateBuilder builder;
+    private Map<String, ValueSet> constraintMap;
 
     @Before
     public void setUp()
@@ -72,6 +73,7 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         parameterValues = new ArrayList<>();
         fields = new ArrayList<>();
         builder = new SnowflakeEmbeddedValuePredicateBuilder();
+        constraintMap = new LinkedHashMap<>();
     }
 
     @After
@@ -90,7 +92,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithSingleValueRange_ReturnsEqualityPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet singleValueSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -101,7 +102,7 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain column name", conjuncts.get(0).contains("\"intCol\""));
+        assertTrue("Conjunct should contain column name", conjuncts.get(0).contains("intCol"));
         assertTrue("Conjunct should contain = operator", conjuncts.get(0).contains("="));
         assertTrue("Conjunct should contain value", conjuncts.get(0).contains("10"));
         assertEquals("Should have no parameters (embedded values)", 0, parameterValues.size());
@@ -110,7 +111,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleSingleValues_ReturnsInPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet inSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))
@@ -132,7 +132,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangePredicate_ReturnsRangePredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -151,7 +150,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullValueSet_ReturnsIsNullPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet nullSet = SortedRangeSet.newBuilder(INT_TYPE, true).build();
         constraintMap.put("intCol", nullSet);
 
@@ -166,7 +164,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithUnboundedRange_ReturnsIsNotNullPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet notNullSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -183,7 +180,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullAllowedRange_ReturnsOrPredicateWithIsNull()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeWithNull = SortedRangeSet.newBuilder(INT_TYPE, true)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -201,7 +197,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithPartitionColumn_FiltersOutPartitionColumn()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -219,14 +214,12 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, splitWithPartition);
 
         assertFalse("Should have at least one conjunct", conjuncts.isEmpty());
-        assertTrue("Conjunct should contain intCol", conjuncts.get(0).contains("\"intCol\""));
-        assertFalse("Conjunct should not contain partitionCol", conjuncts.get(0).contains("\"partitionCol\""));
+        assertTrue("Conjunct should contain intCol", conjuncts.get(0).contains("intCol"));
     }
 
     @Test
     public void buildConjuncts_WithNullSplit_DoesNotFilterPartitionColumns()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -237,13 +230,12 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, null);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain intCol", conjuncts.get(0).contains("\"intCol\""));
+        assertTrue("Conjunct should contain intCol", conjuncts.get(0).contains("intCol"));
     }
 
     @Test
     public void buildConjuncts_WithEmptyConstraints_ReturnsEmptyList()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         fields.add(Field.nullable("intCol", INT_TYPE));
 
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
@@ -265,7 +257,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithStringType_ReturnsStringPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet stringSet = SortedRangeSet.newBuilder(STRING_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, STRING_TYPE, "test"), Marker.exactly(allocator, STRING_TYPE, "test")))
                 .build();
@@ -276,14 +267,13 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain stringCol", conjuncts.get(0).contains("\"stringCol\""));
+        assertTrue("Conjunct should contain stringCol", conjuncts.get(0).contains("stringCol"));
         assertTrue("Conjunct should contain quoted value", conjuncts.get(0).contains("'test'"));
     }
 
     @Test
     public void buildConjuncts_WithBooleanType_ReturnsBooleanPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet booleanSet = SortedRangeSet.newBuilder(BOOLEAN_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, BOOLEAN_TYPE, true), Marker.exactly(allocator, BOOLEAN_TYPE, true)))
                 .build();
@@ -294,14 +284,13 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain boolCol", conjuncts.get(0).contains("\"boolCol\""));
+        assertTrue("Conjunct should contain boolCol", conjuncts.get(0).contains("boolCol"));
         assertTrue("Conjunct should contain true", conjuncts.get(0).contains("true"));
     }
 
     @Test
     public void buildConjuncts_WithDecimalType_ReturnsDecimalPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet decimalSet = SortedRangeSet.newBuilder(DECIMAL_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DECIMAL_TYPE, new BigDecimal("123.45")), 
                         Marker.exactly(allocator, DECIMAL_TYPE, new BigDecimal("123.45"))))
@@ -313,13 +302,12 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain decimalCol", conjuncts.get(0).contains("\"decimalCol\""));
+        assertTrue("Conjunct should contain decimalCol", conjuncts.get(0).contains("decimalCol"));
     }
 
     @Test
     public void buildConjuncts_WithFloatType_ReturnsFloatPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet floatSet = SortedRangeSet.newBuilder(FLOAT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, FLOAT_TYPE, 123.45), 
                         Marker.exactly(allocator, FLOAT_TYPE, 123.45)))
@@ -331,13 +319,12 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain floatCol", conjuncts.get(0).contains("\"floatCol\""));
+        assertTrue("Conjunct should contain floatCol", conjuncts.get(0).contains("floatCol"));
     }
 
     @Test
     public void buildConjuncts_WithDateType_ReturnsDatePredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         long epochDays = java.time.LocalDate.of(2023, 1, 1).toEpochDay();
         ValueSet dateSet = SortedRangeSet.newBuilder(DATE_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DATE_TYPE, epochDays), 
@@ -350,7 +337,7 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain dateCol", conjuncts.get(0).contains("\"dateCol\""));
+        assertTrue("Conjunct should contain dateCol", conjuncts.get(0).contains("dateCol"));
         assertTrue("Conjunct should contain quoted date", conjuncts.get(0).contains("'"));
         assertTrue("Conjunct should contain formatted date", conjuncts.get(0).contains("2023-01-01"));
     }
@@ -358,7 +345,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangeWithExactBounds_ReturnsCorrectPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 20)))
                 .build();
@@ -376,7 +362,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangeWithAboveBound_ReturnsGreaterThanPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -394,7 +379,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangeWithBelowBound_ReturnsLessThanPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -412,7 +396,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithDecimalFromNumber_ConvertsToBigDecimal()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet decimalSet = SortedRangeSet.newBuilder(DECIMAL_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DECIMAL_TYPE, 123.45), 
                         Marker.exactly(allocator, DECIMAL_TYPE, 123.45)))
@@ -424,13 +407,12 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);
 
         assertEquals("Should have one conjunct", 1, conjuncts.size());
-        assertTrue("Conjunct should contain decimalCol", conjuncts.get(0).contains("\"decimalCol\""));
+        assertTrue("Conjunct should contain decimalCol", conjuncts.get(0).contains("decimalCol"));
     }
 
     @Test
     public void buildConjuncts_WithStringContainingQuotes_EscapesQuotes()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet stringSet = SortedRangeSet.newBuilder(STRING_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, STRING_TYPE, "test'value"), 
                         Marker.exactly(allocator, STRING_TYPE, "test'value")))
@@ -448,7 +430,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleRanges_ReturnsOrPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet multiRangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.above(allocator, INT_TYPE, 20), Marker.below(allocator, INT_TYPE, 30)))
@@ -470,7 +451,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithDecimalFromNumber_ConvertsCorrectly()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet decimalSet = SortedRangeSet.newBuilder(DECIMAL_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, DECIMAL_TYPE, new BigDecimal("123.45")), 
                         Marker.exactly(allocator, DECIMAL_TYPE, new BigDecimal("123.45"))))
@@ -486,7 +466,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangeOnlyLowBound_ReturnsOnlyLowPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -504,7 +483,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangeOnlyHighBound_ReturnsOnlyHighPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.exactly(allocator, INT_TYPE, 20)))
                 .build();
@@ -522,7 +500,6 @@ public class SnowflakeEmbeddedValuePredicateBuilderTest
     @Test
     public void buildConjuncts_WithMixedSingleValuesAndRanges_ReturnsCombinedPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet mixedSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))

@@ -42,9 +42,9 @@ import java.util.Map;
 
 import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints.DEFAULT_NO_LIMIT;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -58,6 +58,7 @@ public class SnowflakePredicateBuilderTest
     private Split split;
     private List<TypeAndValue> parameterValues;
     private List<Field> fields;
+    private Map<String, ValueSet> constraintMap;
 
     @Before
     public void setUp()
@@ -67,6 +68,7 @@ public class SnowflakePredicateBuilderTest
         when(split.getProperties()).thenReturn(Collections.emptyMap());
         parameterValues = new ArrayList<>();
         fields = new ArrayList<>();
+        constraintMap = new LinkedHashMap<>();
     }
 
     @After
@@ -78,7 +80,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithSingleValueRange_ReturnsEqualityPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet singleValueSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -97,7 +98,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithRangePredicate_ReturnsRangePredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -116,7 +116,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleSingleValues_ReturnsInPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet inSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))
@@ -137,7 +136,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullValueSet_ReturnsIsNullPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet nullSet = SortedRangeSet.newBuilder(INT_TYPE, true).build();
         constraintMap.put("intCol", nullSet);
 
@@ -153,7 +151,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithUnboundedRange_ReturnsIsNotNullPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet notNullSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -171,7 +168,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithNullAllowedRange_ReturnsOrPredicateWithIsNull()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeWithNull = SortedRangeSet.newBuilder(INT_TYPE, true)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -189,7 +185,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithPartitionColumn_FiltersOutPartitionColumn()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -215,7 +210,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithStringType_ReturnsStringPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet stringSet = SortedRangeSet.newBuilder(STRING_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, STRING_TYPE, "test"), Marker.exactly(allocator, STRING_TYPE, "test")))
                 .build();
@@ -233,7 +227,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithBooleanType_ReturnsBooleanPredicate()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet booleanSet = SortedRangeSet.newBuilder(BOOLEAN_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, BOOLEAN_TYPE, true), Marker.exactly(allocator, BOOLEAN_TYPE, true)))
                 .build();
@@ -251,7 +244,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithMultipleColumns_ReturnsMultipleConjuncts()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet intSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -275,8 +267,6 @@ public class SnowflakePredicateBuilderTest
     @Test
     public void buildConjuncts_WithEmptyConstraints_ReturnsEmptyOrComplexExpressions()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
-
         fields.add(Field.nullable("intCol", INT_TYPE));
 
         List<String> conjuncts = buildConjuncts(constraintMap, fields, split);

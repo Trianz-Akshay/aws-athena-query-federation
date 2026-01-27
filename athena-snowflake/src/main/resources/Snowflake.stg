@@ -1,5 +1,0 @@
-import "JdbcBase.stg"
-
-test_template() ::= <%
-    test template for validating file is accessible.
-%>

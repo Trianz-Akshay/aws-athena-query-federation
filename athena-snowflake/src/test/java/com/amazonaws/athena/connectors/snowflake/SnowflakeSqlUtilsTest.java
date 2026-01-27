@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -57,6 +58,7 @@ public class SnowflakeSqlUtilsTest
     
     private BlockAllocatorImpl allocator;
     private Split split;
+    private Map<String, ValueSet> constraintMap;
 
     @Before
     public void setUp()
@@ -64,6 +66,7 @@ public class SnowflakeSqlUtilsTest
         allocator = new BlockAllocatorImpl();
         split = mock(Split.class);
         when(split.getProperties()).thenReturn(Collections.emptyMap());
+        constraintMap = new LinkedHashMap<>();
     }
 
     @After
@@ -75,7 +78,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithBasicQuery_GeneratesSelectFromQuery()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         Schema schema = makeSchema(Collections.emptyMap());
         
         String expectedSql = "SELECT null FROM \"test_schema\".\"test_table\"";
@@ -88,7 +90,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithConstraintsRanges_GeneratesQueryWithWhereClause()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.above(allocator, INT_TYPE, 10), Marker.below(allocator, INT_TYPE, 20)))
                 .build();
@@ -108,7 +109,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithInPredicate_GeneratesQueryWithInClause()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet inSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 20), Marker.exactly(allocator, INT_TYPE, 20)))
@@ -131,7 +131,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithOrderBy_GeneratesQueryWithOrderBy()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -154,7 +153,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithLimit_GeneratesQueryWithLimit()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet rangeSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -173,7 +171,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithNullPredicate_GeneratesQueryWithIsNull()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet nullSet = SortedRangeSet.newBuilder(INT_TYPE, true).build();
         constraintMap.put("intCol", nullSet);
 
@@ -189,7 +186,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithNotNullPredicate_GeneratesQueryWithIsNotNull()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet notNullSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.lowerUnbounded(allocator, INT_TYPE), Marker.upperUnbounded(allocator, INT_TYPE)))
                 .build();
@@ -207,7 +203,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithMultipleColumns_GeneratesQueryWithAllColumns()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         ValueSet intSet = SortedRangeSet.newBuilder(INT_TYPE, false)
                 .add(new Range(Marker.exactly(allocator, INT_TYPE, 10), Marker.exactly(allocator, INT_TYPE, 10)))
                 .build();
@@ -231,7 +226,6 @@ public class SnowflakeSqlUtilsTest
     @Test
     public void buildSql_WithEmptySchema_GeneratesQueryWithNull()
     {
-        Map<String, ValueSet> constraintMap = new LinkedHashMap<>();
         Schema emptySchema = new Schema(Collections.emptyList());
         Constraints constraints = getConstraints(constraintMap, Collections.emptyList());
 
@@ -249,7 +243,7 @@ public class SnowflakeSqlUtilsTest
     {
         String identifier = "test_column";
         String quoted = SnowflakeSqlUtils.quote(identifier);
-        assertEquals("\"test_column\"", quoted);
+        assertEquals("Quoted identifier should match", "\"test_column\"", quoted);
     }
 
     @Test
@@ -257,7 +251,7 @@ public class SnowflakeSqlUtilsTest
     {
         String identifier = "test\"column";
         String quoted = SnowflakeSqlUtils.quote(identifier);
-        assertEquals("\"test\"\"column\"", quoted);
+        assertEquals("Quoted identifier with quotes should escape quotes", "\"test\"\"column\"", quoted);
     }
 
     @Test
@@ -265,7 +259,7 @@ public class SnowflakeSqlUtilsTest
     {
         String value = "test_value";
         String quoted = SnowflakeSqlUtils.singleQuote(value);
-        assertEquals("'test_value'", quoted);
+        assertEquals("Single quoted string should match", "'test_value'", quoted);
     }
 
     @Test
@@ -273,14 +267,14 @@ public class SnowflakeSqlUtilsTest
     {
         String value = "test'value";
         String quoted = SnowflakeSqlUtils.singleQuote(value);
-        assertEquals("'test''value'", quoted);
+        assertEquals("Single quoted string with quotes should escape quotes", "'test''value'", quoted);
     }
 
     @Test
     public void singleQuote_WithNull_ReturnsNull()
     {
         String quoted = SnowflakeSqlUtils.singleQuote(null);
-        assertEquals(null, quoted);
+        assertNull("Single quote of null should return null", quoted);
     }
 
     private Schema makeSchema(Map<String, ValueSet> constraintMap)

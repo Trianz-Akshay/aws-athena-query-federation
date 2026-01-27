@@ -36,6 +36,14 @@ public final class SnowflakeConstants
     public static final int SINGLE_SPLIT_LIMIT_COUNT = 10000;
     public static final String SNOWFLAKE_QUOTE_CHARACTER = "\"";
     /**
+     * Single quote character for string literals in Snowflake SQL
+     */
+    public static final String SINGLE_QUOTE = "'";
+    /**
+     * Escaped single quote (doubled) for SQL string literals
+     */
+    public static final String ESCAPED_SINGLE_QUOTE = "''";
+    /**
      * A ssl file location constant to store the SSL certificate
      * The file location is fixed at /tmp directory
      * to retrieve ssl certificate location

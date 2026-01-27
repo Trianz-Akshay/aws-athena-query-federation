@@ -101,9 +101,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.amazonaws.athena.connector.lambda.metadata.ListTablesRequest.UNLIMITED_PAGE_SIZE_VALUE;
+import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.ESCAPED_SINGLE_QUOTE;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.MAX_PARTITION_COUNT;
+import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SINGLE_QUOTE;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SINGLE_SPLIT_LIMIT_COUNT;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_NAME;
+import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_EXPORT_BUCKET;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_OBJECT_KEY;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_SPLIT_QUERY_ID;
@@ -371,7 +374,7 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
                     "STORAGE_ALLOWED_LOCATIONS = (%s);",
                     SnowflakeSqlUtils.quote(integrationName),
                     SnowflakeSqlUtils.singleQuote(roleArn),
-                    SnowflakeSqlUtils.singleQuote("s3://" + s3ExportBucket.replace("'", "''") + "/"));
+                    SnowflakeSqlUtils.singleQuote("s3://" + s3ExportBucket.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE) + "/"));
 
             try (Statement stmt = connection.createStatement()) {
                 LOGGER.debug("Create Integration query: {}", createIntegrationQuery);
@@ -393,17 +396,17 @@ public class SnowflakeMetadataHandler extends JdbcMetadataHandler
             generatedSql = SnowflakeSqlUtils.buildSqlWithEmbeddedValues(tableNameForQuery, schemaName, constraints, null);
         }
 
-        // Escape special characters in path components
-        String escapedBucket = s3ExportBucket.replace("'", "''");
-        String escapedQueryID = queryID.replace("'", "''");
-        String escapedRandomStr = randomStr.replace("'", "''");
-        String escapedIntegration = integrationName.replace("\"", "\"\"");
+        // Escape special characters in path components using constants
+        String escapedBucket = s3ExportBucket.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE);
+        String escapedQueryID = queryID.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE);
+        String escapedRandomStr = randomStr.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE);
+        String escapedIntegration = integrationName.replace(SNOWFLAKE_QUOTE_CHARACTER, SNOWFLAKE_QUOTE_CHARACTER + SNOWFLAKE_QUOTE_CHARACTER);
         
         // Build the COPY INTO query with proper escaping and quoting
         String s3Path = String.format("s3://%s/%s/%s/",
-                escapedBucket.replace("'", "''"),
-                escapedQueryID.replace("'", "''"),
-                escapedRandomStr.replace("'", "''"));
+                escapedBucket.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE),
+                escapedQueryID.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE),
+                escapedRandomStr.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE));
                 
         String snowflakeExportQuery = String.format("COPY INTO '%s' FROM (%s) STORAGE_INTEGRATION = %s " +
                 "HEADER = TRUE FILE_FORMAT = (TYPE = 'PARQUET', COMPRESSION = 'SNAPPY') MAX_FILE_SIZE = 16777216",

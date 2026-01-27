@@ -26,8 +26,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.stringtemplate.v4.ST;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
@@ -64,16 +62,9 @@ public class SnowflakeQueryBuilder extends JdbcQueryBuilder<SnowflakeQueryBuilde
     }
     
     @Override
-    protected List<String> getPartitionWhereClauses(Split split)
-    {
-        // Snowflake doesn't have partition-specific WHERE clauses
-        return Collections.emptyList();
-    }
-    
-    @Override
     public SnowflakeQueryBuilder withProjection(Schema schema, Split split)
     {
-        // Handle null split for S3 export scenarios
+        // Handle null split for S3 export scenarios where partition column needs to be filtered
         if (split == null) {
             this.projection = schema.getFields().stream()
                     .map(Field::getName)
@@ -82,6 +73,7 @@ public class SnowflakeQueryBuilder extends JdbcQueryBuilder<SnowflakeQueryBuilde
                     .collect(Collectors.toList());
         }
         else {
+            // Use parent implementation which handles partition column filtering via split properties
             super.withProjection(schema, split);
         }
         return this;

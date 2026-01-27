@@ -26,7 +26,7 @@ import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
  */
 public class SnowflakeQueryFactory extends JdbcQueryFactory
 {
-    private static final String TEMPLATE_FILE = "Snowflake.stg";
+    private static final String TEMPLATE_FILE = "JdbcBase.stg";
 
     public SnowflakeQueryFactory()
     {

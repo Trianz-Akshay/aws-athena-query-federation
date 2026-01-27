@@ -31,6 +31,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 import java.util.List;
 
+import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.ESCAPED_SINGLE_QUOTE;
+import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SINGLE_QUOTE;
 import static com.amazonaws.athena.connectors.snowflake.SnowflakeConstants.SNOWFLAKE_QUOTE_CHARACTER;
 
 /**
@@ -109,8 +111,8 @@ public class SnowflakeSqlUtils
         if (value == null) {
             return null;
         }
-        String escaped = value.replace("'", "''");
-        return "'" + escaped + "'";
+        String escaped = value.replace(SINGLE_QUOTE, ESCAPED_SINGLE_QUOTE);
+        return SINGLE_QUOTE + escaped + SINGLE_QUOTE;
     }
     
     /**
@@ -131,7 +133,7 @@ public class SnowflakeSqlUtils
         queryBuilder.withPredicateBuilder(new SnowflakeEmbeddedValuePredicateBuilder());
         
         // Snowflake uses schema.table format (no catalog in FROM clause)
-        String sql = queryBuilder
+        return queryBuilder
                 .withCatalog(null)
                 .withTableName(tableName)
                 .withProjection(schema, split)
@@ -139,7 +141,5 @@ public class SnowflakeSqlUtils
                 .withOrderByClause(constraints)
                 .withLimitClause(constraints)
                 .build();
-        
-        return sql;
     }
 }

@@ -19,6 +19,7 @@
  */
 package com.amazonaws.athena.connectors.snowflake.query;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertNotNull;
@@ -26,17 +27,23 @@ import static org.junit.Assert.assertTrue;
 
 public class SnowflakeQueryFactoryTest
 {
+    private SnowflakeQueryFactory factory;
+
+    @Before
+    public void setUp()
+    {
+        factory = new SnowflakeQueryFactory();
+    }
+
     @Test
     public void constructor_WhenCalled_CreatesInstance()
     {
-        SnowflakeQueryFactory factory = new SnowflakeQueryFactory();
         assertNotNull("Factory should not be null", factory);
     }
 
     @Test
     public void createQueryBuilder_WhenCalled_ReturnsSnowflakeQueryBuilder()
     {
-        SnowflakeQueryFactory factory = new SnowflakeQueryFactory();
         SnowflakeQueryBuilder builder = factory.createQueryBuilder();
         
         assertNotNull("Query builder should not be null", builder);
@@ -47,7 +54,6 @@ public class SnowflakeQueryFactoryTest
     @Test
     public void createQueryBuilder_WhenCalledMultipleTimes_ReturnsNewInstances()
     {
-        SnowflakeQueryFactory factory = new SnowflakeQueryFactory();
         SnowflakeQueryBuilder builder1 = factory.createQueryBuilder();
         SnowflakeQueryBuilder builder2 = factory.createQueryBuilder();
         

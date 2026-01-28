@@ -19,13 +19,16 @@
  */
 package com.amazonaws.athena.connectors.synapse;
 
-import com.amazonaws.athena.connectors.jdbc.manager.JdbcFederationExpressionParser;
-import com.google.common.base.Joiner;
-import org.apache.arrow.vector.types.pojo.ArrowType;
+import com.amazonaws.athena.connectors.jdbc.manager.JdbcQueryFactory;
+import com.amazonaws.athena.connectors.jdbc.manager.TemplateBasedJdbcFederationExpressionParser;
 
-import java.util.List;
-
-public class SynapseFederationExpressionParser extends JdbcFederationExpressionParser
+/**
+ * Azure Synapse implementation of FederationExpressionParser using StringTemplate.
+ * Extends TemplateBasedJdbcFederationExpressionParser which provides the common
+ * template-based implementation for all migrated JDBC connectors.
+ * Overrides parseConstantExpression for Synapse-specific date handling.
+ */
+public class SynapseFederationExpressionParser extends TemplateBasedJdbcFederationExpressionParser
 {
     public SynapseFederationExpressionParser(String quoteChar)
     {
@@ -33,8 +36,8 @@ public class SynapseFederationExpressionParser extends JdbcFederationExpressionP
     }
 
     @Override
-    public String writeArrayConstructorClause(ArrowType type, List<String> arguments)
+    protected JdbcQueryFactory getQueryFactory()
     {
-        return Joiner.on(", ").join(arguments);
-    }    
+        return SynapseSqlUtils.getQueryFactory();
+    }
 }

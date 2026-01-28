@@ -90,9 +90,9 @@ public class SynapseMetadataHandler extends JdbcMetadataHandler
     static final Map<String, String> JDBC_PROPERTIES = ImmutableMap.of("databaseTerm", "SCHEMA");
     static final String ALL_PARTITIONS = "0";
     static final String PARTITION_NUMBER = "partition_number";
-    static final String PARTITION_BOUNDARY_FROM = "PARTITION_BOUNDARY_FROM";
-    static final String PARTITION_BOUNDARY_TO = "PARTITION_BOUNDARY_TO";
-    static final String PARTITION_COLUMN = "PARTITION_COLUMN";
+    public static final String PARTITION_BOUNDARY_FROM = "PARTITION_BOUNDARY_FROM";
+    public static final String PARTITION_BOUNDARY_TO = "PARTITION_BOUNDARY_TO";
+    public static final String PARTITION_COLUMN = "PARTITION_COLUMN";
 
     private static final int MAX_SPLITS_PER_REQUEST = 1000_000;
 

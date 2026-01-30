@@ -45,7 +45,6 @@ import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.manager.JDBCUtil;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcMetadataHandler;
 import com.amazonaws.athena.connectors.jdbc.qpt.JdbcQueryPassthrough;
-import com.amazonaws.athena.connectors.vertica.query.QueryFactory;
 import com.amazonaws.athena.connectors.vertica.query.VerticaExportQueryBuilder;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.util.VisibleForTesting;
@@ -101,7 +100,6 @@ public class VerticaMetadataHandler
     private static final String EMPTY_STRING = StringUtils.EMPTY;
     private static final String TABLE_SCHEMA = "TABLE_SCHEM";
     private static final String[] TABLE_TYPES = {"TABLE"};
-    private final QueryFactory queryFactory = new QueryFactory();
     private final VerticaSchemaUtils verticaSchemaUtils;
     private S3Client amazonS3;
 
@@ -284,7 +282,7 @@ public class VerticaMetadataHandler
         // if  QPT get input query from Athena console
         //else old logic
 
-        VerticaExportQueryBuilder queryBuilder = queryFactory.createVerticaExportQueryBuilder();
+        VerticaExportQueryBuilder queryBuilder = VerticaSqlUtils.getQueryFactory().createVerticaExportQueryBuilder();
         String preparedSQLStmt;
 
         if (!request.getTableName().getQualifiedTableName().equalsIgnoreCase(queryPassthrough.getFunctionSignature())) {
@@ -356,7 +354,7 @@ public class VerticaMetadataHandler
         if (constraints.isQueryPassThrough()) {
             String preparedSQL = buildQueryPassthroughSql(constraints);
 
-            VerticaExportQueryBuilder queryBuilder = queryFactory.createQptVerticaExportQueryBuilder();
+            VerticaExportQueryBuilder queryBuilder = VerticaSqlUtils.getQueryFactory().createQptVerticaExportQueryBuilder();
             sqlStatement = queryBuilder.withS3ExportBucket(s3ExportBucket)
                     .withQueryID(queryID)
                     .withPreparedStatementSQL(preparedSQL).build();

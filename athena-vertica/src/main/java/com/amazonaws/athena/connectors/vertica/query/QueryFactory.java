@@ -94,12 +94,12 @@ public class QueryFactory {
     }
 
     /**
-     * Used to get an instance of a templated Vertica Export query.
+     * Used to get an instance of a templated Vertica Export query or predicate template.
      *
-     * @param templateName The name of the query template.
+     * @param templateName The name of the query or predicate template.
      * @return The StringTemplate containing the query template that can be used to render and instance of the query template.
      */
-    private ST getQueryTemplate(String templateName)
+    public ST getQueryTemplate(String templateName)
     {
         return createGroupFile().getInstanceOf(templateName);
     }

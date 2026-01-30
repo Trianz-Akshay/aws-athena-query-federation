@@ -81,7 +81,7 @@ public class PredicateBuilderTest {
 
     @Test
     public void toPredicate_EqualsOperator_ReturnsEqualityPredicate() {
-        String expected = "\"col1\" = <col1> ";
+        String expected = "\"col1\" = <col1>";
         String actual = PredicateBuilder.toPredicate("col1", "=", 100, col1Int.getType(), accumulator);
         assertEquals(expected, actual);
         assertTrue(accumulator.containsKey("col1"));
@@ -91,7 +91,7 @@ public class PredicateBuilderTest {
 
     @Test
     public void toPredicate_GreaterThanOperator_ReturnsGreaterThanPredicate() {
-        String expected = "\"col3\" > <col3> ";
+        String expected = "\"col3\" > <col3>";
         String actual = PredicateBuilder.toPredicate("col3", ">", 99.5, col3Double.getType(), accumulator);
         assertEquals(expected, actual);
         assertTrue(accumulator.containsKey("col3"));
@@ -101,7 +101,7 @@ public class PredicateBuilderTest {
 
     @Test
     public void toPredicate_LessThanOperator_ReturnsLessThanPredicate() {
-        String expected = "\"col2\" \\< <col2> ";
+        String expected = "\"col2\" \\< <col2>";
         String actual = PredicateBuilder.toPredicate("col2", "<", "abc", col2Varchar.getType(), accumulator);
         assertEquals(expected, actual);
         assertTrue(accumulator.containsKey("col2"));
@@ -111,7 +111,7 @@ public class PredicateBuilderTest {
 
     @Test
     public void toPredicate_LessThanOrEqualOperator_ReturnsLessThanOrEqualPredicate() {
-        String expected = "\"col1\" \\<= <col1> ";
+        String expected = "\"col1\" \\<= <col1>";
         String actual = PredicateBuilder.toPredicate("col1", "<=", 5, col1Int.getType(), accumulator);
         assertEquals(expected, actual);
         assertTrue(accumulator.containsKey("col1"));
@@ -141,7 +141,7 @@ public class PredicateBuilderTest {
         Constraints constraints = createConstraints(ImmutableMap.of("col1", singleValue(col1Int.getType(), 123)));
         List<String> conjuncts = PredicateBuilder.toConjuncts(schema.getFields(), constraints, accumulator);
         assertEquals(1, conjuncts.size());
-        assertEquals("(\"col1\" = <col1> )", conjuncts.get(0));
+        assertEquals("(\"col1\" = <col1>)", conjuncts.get(0));
         assertEquals(1, accumulator.size());
         assertEquals(123, accumulator.get("col1").getValue());
     }
@@ -176,7 +176,7 @@ public class PredicateBuilderTest {
         Constraints constraints = createConstraints(ImmutableMap.of("col3", greaterThan(col3Double.getType(), 10.5)));
         List<String> conjuncts = PredicateBuilder.toConjuncts(schema.getFields(), constraints, accumulator);
         assertEquals(1, conjuncts.size());
-        assertEquals("((\"col3\" > <col3> ))", conjuncts.get(0));
+        assertEquals("((\"col3\" > <col3>))", conjuncts.get(0));
         assertEquals(1, accumulator.size());
         assertEquals(10.5, accumulator.get("col3").getValue());
     }
@@ -186,7 +186,7 @@ public class PredicateBuilderTest {
         Constraints constraints = createConstraints(ImmutableMap.of("col1", betweenInclusive(col1Int.getType())));
         List<String> conjuncts = PredicateBuilder.toConjuncts(schema.getFields(), constraints, accumulator);
         assertEquals(1, conjuncts.size());
-        assertEquals("((\"col1\" >= <col1>  AND \"col1\" \\<= <col1Pred1> ))", conjuncts.get(0));
+        assertEquals("((\"col1\" >= <col1> AND \"col1\" \\<= <col1Pred1>))", conjuncts.get(0));
         assertEquals(2, accumulator.size());
         assertEquals(10, accumulator.get("col1").getValue());
         assertEquals(20, accumulator.get("col1Pred1").getValue());
@@ -219,8 +219,8 @@ public class PredicateBuilderTest {
         Constraints constraints = createConstraints(summary);
         List<String> conjuncts = PredicateBuilder.toConjuncts(schema.getFields(), constraints, accumulator);
         assertEquals(2, conjuncts.size());
-        assertTrue(conjuncts.contains("((\"col1\" > <col1> ))"));
-        assertTrue(conjuncts.contains("(\"col2\" = <col2> )"));
+        assertTrue(conjuncts.contains("((\"col1\" > <col1>))"));
+        assertTrue(conjuncts.contains("(\"col2\" = <col2>)"));
         assertEquals(2, accumulator.size());
         assertEquals(10, accumulator.get("col1").getValue());
         assertEquals("ACTIVE", accumulator.get("col2").getValue().toString());

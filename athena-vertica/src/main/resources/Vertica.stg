@@ -1,5 +1,28 @@
+import "JdbcBase.stg"
+
 test_template() ::= <%
     test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: PredicateBuilder.java
+ *@Description: Vertica comparison predicate with named placeholder (not ?).
+ *@param columnName The column name (quoted).
+ *@param operator The comparison operator.
+ *@param placeholder The placeholder key e.g. <key>.
+ */
+comparison_predicate(columnName, operator, placeholder) ::= <%
+<columnName> <operator> <placeholder>
+%>
+
+/**
+ *@UsedBy: PredicateBuilder.java
+ *@Description: Vertica IN predicate with named placeholders.
+ *@param columnName The column name (quoted).
+ *@param placeholders List of placeholder keys e.g. <key1>,<key2>.
+ */
+in_predicate(columnName, placeholders) ::= <%
+<columnName> IN (<placeholders; separator=",">)
 %>
 
 /**

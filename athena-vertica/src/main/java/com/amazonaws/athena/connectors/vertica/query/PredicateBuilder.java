@@ -19,11 +19,11 @@
  */
 package com.amazonaws.athena.connectors.vertica.query;
 
+import com.amazonaws.athena.connectors.vertica.VerticaSqlUtils;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Constraints;
 import com.amazonaws.athena.connector.lambda.domain.predicate.Range;
 import com.amazonaws.athena.connector.lambda.domain.predicate.SortedRangeSet;
 import com.amazonaws.athena.connector.lambda.domain.predicate.ValueSet;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class PredicateBuilder {
 
@@ -70,18 +71,21 @@ public class PredicateBuilder {
 
         // TODO Add isNone and isAll checks once we have data on nullability.
 
-        if (valueSet instanceof SortedRangeSet){
+        if (valueSet instanceof SortedRangeSet) {
             if (valueSet.isNone() && valueSet.isNullAllowed()) {
-                return String.format("(%s IS NULL)", columnName);
+                return VerticaSqlUtils.renderTemplate("null_predicate",
+                        Map.of("columnName", columnName, "isNull", true));
             }
 
             if (valueSet.isNullAllowed()) {
-                disjuncts.add(String.format("(%s IS NULL)", columnName));
+                disjuncts.add(VerticaSqlUtils.renderTemplate("null_predicate",
+                        Map.of("columnName", columnName, "isNull", true)));
             }
 
             Range rangeSpan = ((SortedRangeSet) valueSet).getSpan();
             if (!valueSet.isNullAllowed() && rangeSpan.getLow().isLowerUnbounded() && rangeSpan.getHigh().isUpperUnbounded()) {
-                return String.format("(%s IS NOT NULL)", columnName);
+                return VerticaSqlUtils.renderTemplate("null_predicate",
+                        Map.of("columnName", columnName, "isNull", false));
             }
 
             for (Range range : valueSet.getRanges().getOrderedRanges()) {
@@ -119,7 +123,7 @@ public class PredicateBuilder {
                     }
                     // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                     Preconditions.checkState(!rangeConjuncts.isEmpty());
-                    disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                    disjuncts.add(VerticaSqlUtils.renderTemplate("range_predicate", Map.of("conjuncts", rangeConjuncts)));
                 }
             }
 
@@ -134,12 +138,12 @@ public class PredicateBuilder {
                     accumulator.put(indexedKey, new PredicateBuilder.TypeAndValue(type, singleValues.get(i)));
                     placeholders.add("<" + indexedKey + ">");
                 }
-                String values = Joiner.on(",").join(placeholders);
-                disjuncts.add(quote(columnName) + " IN (" + values + ")");
+                disjuncts.add(VerticaSqlUtils.renderTemplate("in_predicate",
+                        Map.of("columnName", quote(columnName), "placeholders", placeholders)));
             }
         }
 
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+        return VerticaSqlUtils.renderTemplate("or_predicate", Map.of("disjuncts", disjuncts));
     }
 
     protected static String toPredicate(String columnName, String operator, Object value, ArrowType type,
@@ -160,7 +164,8 @@ public class PredicateBuilder {
         }
 
         accumulator.put(key, new PredicateBuilder.TypeAndValue(type, value));
-        return quote(columnName) + " " + operator + " <" + key + "> ";
+        return VerticaSqlUtils.renderTemplate("comparison_predicate",
+                Map.of("columnName", quote(columnName), "operator", operator, "placeholder", "<" + key + ">"));
     }
     protected static String quote(String name)
     {

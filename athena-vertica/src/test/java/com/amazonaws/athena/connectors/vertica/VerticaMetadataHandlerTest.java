@@ -48,7 +48,6 @@ import com.amazonaws.athena.connector.lambda.security.FederatedIdentity;
 import com.amazonaws.athena.connectors.jdbc.connection.DatabaseConnectionConfig;
 import com.amazonaws.athena.connectors.jdbc.connection.JdbcConnectionFactory;
 import com.amazonaws.athena.connectors.jdbc.qpt.JdbcQueryPassthrough;
-import com.amazonaws.athena.connectors.vertica.query.QueryFactory;
 import com.amazonaws.athena.connectors.vertica.query.VerticaExportQueryBuilder;
 import com.google.common.collect.ImmutableList;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -141,7 +140,6 @@ public class VerticaMetadataHandlerTest extends TestBase
     private static final String COLUMN_NAME = "COLUMN_NAME";
     private static final String TYPE_NAME = "TYPE_NAME";
 
-    private QueryFactory queryFactory;
     private JdbcConnectionFactory jdbcConnectionFactory;
     private VerticaMetadataHandler verticaMetadataHandler;
     private VerticaExportQueryBuilder verticaExportQueryBuilder;
@@ -169,7 +167,6 @@ public class VerticaMetadataHandlerTest extends TestBase
     {
 
         this.verticaSchemaUtils = Mockito.mock(VerticaSchemaUtils.class);
-        this.queryFactory = Mockito.mock(QueryFactory.class);
         this.verticaExportQueryBuilder = Mockito.mock(VerticaExportQueryBuilder.class);
         this.connection = Mockito.mock(Connection.class, Mockito.RETURNS_DEEP_STUBS);
         this.secretsManager = Mockito.mock(SecretsManagerClient.class);
@@ -388,13 +385,12 @@ public class VerticaMetadataHandlerTest extends TestBase
                         "AS SELECT bit_col,tinyint_col,smallint_col,int_col,bigint_col,float_col,double_col,decimal_col," +
                         "varchar_col,preparedStmt,queryId,awsRegionSql " +
                         "FROM \"schema1\".\"table1\" " +
-                        "WHERE (\"bit_col\" = 1 ) AND (\"tinyint_col\" = 127 ) AND (\"smallint_col\" = 32767 ) AND (\"int_col\" = 1000 ) " +
-                        "AND (\"bigint_col\" = 1000000 ) AND (\"float_col\" = 3.14 ) AND (\"double_col\" = 3.14159 ) " +
-                        "AND (\"decimal_col\" = 123.45 ) AND (\"varchar_col\" = 'test' )",
+                        "WHERE (\"bit_col\" = 1) AND (\"tinyint_col\" = 127) AND (\"smallint_col\" = 32767) AND (\"int_col\" = 1000) " +
+                        "AND (\"bigint_col\" = 1000000) AND (\"float_col\" = 3.14) AND (\"double_col\" = 3.14159) " +
+                        "AND (\"decimal_col\" = 123.45) AND (\"varchar_col\" = 'test')",
                 queryId);
 
         Mockito.when(connection.getMetaData().getColumns(null, "schema1", "table1", null)).thenReturn(resultSet);
-        Mockito.lenient().when(queryFactory.createVerticaExportQueryBuilder()).thenReturn(new VerticaExportQueryBuilder(new ST("templateVerticaExportQuery")));
         Mockito.when(verticaMetadataHandlerMocked.getS3ExportBucket()).thenReturn(s3ExportBucket);
 
         try (GetTableLayoutRequest req = new GetTableLayoutRequest(federatedIdentity, queryId, "default",
@@ -718,7 +714,7 @@ public class VerticaMetadataHandlerTest extends TestBase
                 actualQueryID + "', Compression='snappy', fileSizeMB=16, rowGroupSizeMB=16) " +
                 "AS SELECT nullable_field " +
                 "FROM \"testSchema\".\"testTable1\" " +
-                "WHERE ((nullable_field IS NULL) OR \"nullable_field\" = 'test' )";
+                "WHERE ((nullable_field IS NULL) OR \"nullable_field\" = 'test')";
 
         Assert.assertEquals(expectedExportSql, actualSql);
     }
@@ -741,7 +737,7 @@ public class VerticaMetadataHandlerTest extends TestBase
                 actualQueryID + "', Compression='snappy', fileSizeMB=16, rowGroupSizeMB=16) " +
                 "AS SELECT name " +
                 "FROM \"testSchema\".\"testTable1\" " +
-                "WHERE ((\"name\" >= 'test'  AND \"name\" < 'tesu' ))";
+                "WHERE ((\"name\" >= 'test' AND \"name\" < 'tesu'))";
 
         Assert.assertEquals(expectedExportSql, actualSql);
     }
@@ -785,7 +781,7 @@ public class VerticaMetadataHandlerTest extends TestBase
                 actualQueryID + "', Compression='snappy', fileSizeMB=16, rowGroupSizeMB=16) " +
                 "AS SELECT id,status,price,category " +
                 "FROM \"testSchema\".\"testTable1\" " +
-                "WHERE (\"id\" IN (1,2,3,4,5)) AND ((\"status\" > 'A'  AND \"status\" <= 'Z' )) AND ((\"price\" >= 100  AND \"price\" <= 1000 )) AND (\"category\" IN ('books','electronics'))";
+                "WHERE (\"id\" IN (1,2,3,4,5)) AND ((\"status\" > 'A' AND \"status\" <= 'Z')) AND ((\"price\" >= 100 AND \"price\" <= 1000)) AND (\"category\" IN ('books','electronics'))";
 
         Assert.assertEquals(expectedExportSql, actualSql);
     }
@@ -820,7 +816,7 @@ public class VerticaMetadataHandlerTest extends TestBase
                 actualQueryID + "', Compression='snappy', fileSizeMB=16, rowGroupSizeMB=16) " +
                 "AS SELECT id,nullable_name,nullable_score,required_field " +
                 "FROM \"testSchema\".\"testTable1\" " +
-                "WHERE ((\"id\" > 0 )) AND ((nullable_name IS NULL) OR \"nullable_name\" = 'test' ) AND ((\"nullable_score\" >= 0  AND \"nullable_score\" < 100 )) AND (required_field IS NOT NULL)";
+                "WHERE ((\"id\" > 0)) AND ((nullable_name IS NULL) OR \"nullable_name\" = 'test') AND ((\"nullable_score\" >= 0 AND \"nullable_score\" < 100)) AND (required_field IS NOT NULL)";
 
         Assert.assertEquals(expectedExportSql, actualSql);
 
@@ -861,7 +857,7 @@ public class VerticaMetadataHandlerTest extends TestBase
                 actualQueryID + "', Compression='snappy', fileSizeMB=16, rowGroupSizeMB=16) " +
                 "AS SELECT score,grade,age,department " +
                 "FROM \"testSchema\".\"testTable1\" " +
-                "WHERE ((\"score\" > 85 )) AND ((\"grade\" <= 'B' )) AND ((\"age\" >= 18  AND \"age\" < 65 )) AND (\"department\" IN ('engineering','marketing','sales'))";
+                "WHERE ((\"score\" > 85)) AND ((\"grade\" <= 'B')) AND ((\"age\" >= 18 AND \"age\" < 65)) AND (\"department\" IN ('engineering','marketing','sales'))";
 
         Assert.assertEquals(expectedExportSql, actualSql);
 
@@ -935,7 +931,6 @@ public class VerticaMetadataHandlerTest extends TestBase
         ResultSet resultSet = mockResultSet(schema, types, values, rowNumber);
         Mockito.when(connection.getMetaData().getColumns(null, TEST_SCHEMA, TEST_TABLE, null)).thenReturn(resultSet);
 
-        Mockito.lenient().when(queryFactory.createVerticaExportQueryBuilder()).thenReturn(new VerticaExportQueryBuilder(new ST("templateVerticaExportQuery")));
         Mockito.when(verticaMetadataHandlerMocked.getS3ExportBucket()).thenReturn(TEST_S3_BUCKET);
 
         try (GetTableLayoutRequest req = new GetTableLayoutRequest(this.federatedIdentity, TEST_QUERY_ID, DEFAULT_CATALOG,

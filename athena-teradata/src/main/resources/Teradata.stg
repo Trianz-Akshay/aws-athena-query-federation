@@ -1,0 +1,16 @@
+import "JdbcBase.stg"
+
+test_template() ::= <%
+    test template for validating file is accessible.
+%>
+
+/**
+ *@UsedBy: TeradataQueryBuilder.java and other JDBC connectors that need a partition equality predicate.
+ *@Description: Template for partition WHERE clause (column = 'value').
+ *@param columnName The quoted column name.
+ *@param value The escaped string literal value.
+ *@return A predicate like partition = p0
+ */
+partition_clause(columnName, value) ::= <%
+<columnName> = <value>
+%>

@@ -80,12 +80,6 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
         return (T) this;
     }
 
-    public T withPartitionClause(String partitionClause)
-    {
-        this.partitionClause = partitionClause;
-        return (T) this;
-    }
-
     public T withOrderByClause(Constraints constraints)
     {
         this.orderByClause = extractOrderByClause(constraints);
@@ -100,29 +94,6 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
                 .map(this::transformColumnForProjection)
                 .collect(Collectors.toList());
         return (T) this;
-    }
-
-    /**
-     * Hook method for transforming column names in the projection.
-     * Subclasses can override this to apply connector-specific transformations
-     * (e.g., RTRIM for CHAR columns in PostgreSQL).
-     *
-     * @param columnName The column name to transform
-     * @return The transformed column expression (default: just quoted column name)
-     */
-    protected String transformColumnForProjection(String columnName)
-    {
-        return quote(columnName);
-    }
-
-    public JdbcQueryBuilder withProjection(Schema schema, Split split)
-    {
-        this.projection = schema.getFields().stream()
-                .map(Field::getName)
-                .filter(name -> !split.getProperties().containsKey(name))
-                .map(this::transformColumnForProjection)
-                .collect(Collectors.toList());
-        return this;
     }
 
     /**
@@ -169,11 +140,6 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
         return (partitionClause != null && !partitionClause.isEmpty()) ? partitionClause : null;
     }
 
-    public String getPartitionClause()
-    {
-        return (partitionClause != null && !partitionClause.isEmpty()) ? partitionClause : null;
-    }
-
     public List<String> getConjuncts()
     {
         return conjuncts;
@@ -207,44 +173,6 @@ public abstract class JdbcQueryBuilder<T extends JdbcQueryBuilder<T>>
     protected List<String> getPartitionWhereClauses(Split split)
     {
         return new ArrayList<>();
-    }
-
-    public T withConjuncts(Schema schema, Constraints constraints, Split split)
-    {
-        JdbcPredicateBuilder predicateBuilder = createPredicateBuilder();
-        if (predicateBuilder != null) {
-            this.conjuncts = predicateBuilder.buildConjuncts(schema.getFields(), constraints, this.parameterValues, split);
-        }
-        else {
-            this.conjuncts = new ArrayList<>();
-        }
-
-        // Add partition clauses if applicable
-        List<String> partitionClauses = getPartitionWhereClauses(split);
-        if (!partitionClauses.isEmpty()) {
-            this.conjuncts.addAll(partitionClauses);
-        }
-        return (T) this;
-    }
-
-    protected abstract JdbcPredicateBuilder createPredicateBuilder();
-
-    protected List<String> getPartitionWhereClauses(Split split)
-    {
-        return new ArrayList<>();
-    }
-
-    public String getLimitClause()
-    {
-        return limitClause;
-    }
-    
-    public T withLimitClause(Constraints constraints)
-    {
-        if (constraints.getLimit() > 0) {
-            this.limitClause = "LIMIT " + constraints.getLimit();
-        }
-        return (T) this;
     }
 
     public T withLimitClause(Constraints constraints)

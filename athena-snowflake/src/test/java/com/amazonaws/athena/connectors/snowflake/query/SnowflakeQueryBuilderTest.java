@@ -95,17 +95,9 @@ public class SnowflakeQueryBuilderTest
         builder.withTableName(TEST_TABLE);
 
         String sql = builder.build();
-        
-        assertNotNull("SQL should not be null", sql);
-        // Verify all SELECT query components in a single comprehensive check
-        assertTrue("SQL should contain SELECT, all columns, FROM clause, and exclude partition column",
-                sql.contains("SELECT") &&
-                sql.contains("\"id\"") &&
-                sql.contains("\"name\"") &&
-                sql.contains("\"active\"") &&
-                sql.contains("\"score\"") &&
-                sql.contains("FROM \"test_schema\".\"test_table\"") &&
-                !sql.contains("\"partition_col\""));
+
+        String expectedSql = "SELECT \"id\", \"name\", \"active\", \"score\" FROM \"test_schema\".\"test_table\"";
+        assertEquals(expectedSql, sql);
     }
 
     @Test

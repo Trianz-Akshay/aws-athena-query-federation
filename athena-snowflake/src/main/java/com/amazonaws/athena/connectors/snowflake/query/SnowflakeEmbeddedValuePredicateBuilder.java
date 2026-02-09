@@ -28,7 +28,6 @@ import com.amazonaws.athena.connectors.jdbc.manager.JdbcPredicateBuilder;
 import com.amazonaws.athena.connectors.jdbc.manager.JdbcSqlUtils;
 import com.amazonaws.athena.connectors.jdbc.manager.TypeAndValue;
 import com.amazonaws.athena.connectors.snowflake.SnowflakeSqlUtils;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -156,9 +155,10 @@ public class SnowflakeEmbeddedValuePredicateBuilder extends JdbcPredicateBuilder
                         val.add(formattedValue.toString());
                     }
                 }
-                // Build IN predicate directly: column IN ('val1','val2','val3')
-                String inValues = Joiner.on(",").join(val);
-                disjuncts.add(quote(columnName) + " IN (" + inValues + ")");
+                String inValues = JdbcSqlUtils.renderTemplate(queryFactory, "comma_separated_list_with_parentheses",
+                        Map.of("items", val));
+                disjuncts.add(JdbcSqlUtils.renderTemplate(queryFactory, "in_expression",
+                        Map.of("column", columnName, "values", inValues)));
             }
         }
         return JdbcSqlUtils.renderTemplate(queryFactory, "or_predicate",

@@ -44,7 +44,7 @@ jobs:
           echo "NEW_RELEASE_VERSION=$NEW_RELEASE_VERSION" >> $GITHUB_ENV
 
       - name: Create branch locally on the runner
-        run: git checkout -b release_${NEW_RELEASE_VERSION} origin/remove-shaded-jar
+        run: git checkout -b release_${NEW_RELEASE_VERSION} origin/remove-shaded-jar-postgres
 
       - name: Bump the versions in the branch
         env:

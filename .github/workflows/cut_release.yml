@@ -63,8 +63,12 @@ jobs:
         run: |
           echo "Cut release $NEW_RELEASE_VERSION" > /tmp/RELEASE_MESSAGE
           echo >> /tmp/RELEASE_MESSAGE
-          git fetch --tag origin
-          git log --format='  - %s' $PREVIOUS_RELEASE_TAG..HEAD >> /tmp/RELEASE_MESSAGE
+          git fetch --tags origin
+          if git rev-parse "$PREVIOUS_RELEASE_TAG" >/dev/null 2>&1; then
+            git log --format='  - %s' $PREVIOUS_RELEASE_TAG..HEAD >> /tmp/RELEASE_MESSAGE
+          else
+            git log --format='  - %s' -n 100 >> /tmp/RELEASE_MESSAGE
+          fi
           git commit -a -F /tmp/RELEASE_MESSAGE
 
       - name: Build Java 11 jars

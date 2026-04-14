@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -40,7 +41,6 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -95,13 +95,12 @@ import static com.amazonaws.athena.connector.lambda.domain.predicate.Constraints
 import static com.amazonaws.athena.connectors.vertica.VerticaConstants.VERTICA_SPLIT_EXPORT_BUCKET;
 import static com.amazonaws.athena.connectors.vertica.VerticaConstants.VERTICA_SPLIT_OBJECT_KEY;
 import static com.amazonaws.athena.connectors.vertica.VerticaConstants.VERTICA_SPLIT_QUERY_ID;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
 
@@ -171,6 +170,19 @@ public class VerticaRecordHandlerTest
         logger.info("{}: exit ", testName.getMethodName());
     }
 
+    @Test
+    public void normalizeToArrowDecimal_roundsScaleThenFits()
+    {
+        assertEquals(0, new BigDecimal("123.45").compareTo(
+                VerticaRecordHandler.normalizeToArrowDecimal(new BigDecimal("123.451"), 10, 2, "c")));
+    }
+
+    @Test
+    public void normalizeToArrowDecimal_clampsWhenParquetWiderThanGlue()
+    {
+        assertEquals(0, new BigDecimal("99999999.99").compareTo(
+                VerticaRecordHandler.normalizeToArrowDecimal(new BigDecimal("1234567890123.456"), 10, 2, "c")));
+    }
 
     @Test
     public void doReadRecordsNoSpill()
@@ -179,11 +191,13 @@ public class VerticaRecordHandlerTest
         logger.info("doReadRecordsNoSpill: enter");
 
         VectorSchemaRoot schemaRoot = createRoot();
-        ArrowReader mockReader = mock(ArrowReader.class);
-        when(mockReader.loadNextBatch()).thenReturn(true, false);
-        when(mockReader.getVectorSchemaRoot()).thenReturn(schemaRoot);
         VerticaRecordHandler handlerSpy = spy(handler);
-        doReturn(mockReader).when(handlerSpy).constructArrowReader(any());
+        doAnswer((InvocationOnMock invocation) -> {
+            Consumer<Map<String, Object>> rowConsumer = invocation.getArgument(4);
+            rowConsumer.accept(rowMapFromRoot(schemaRoot, 0));
+            rowConsumer.accept(rowMapFromRoot(schemaRoot, 1));
+            return null;
+        }).when(handlerSpy).forEachExportedRow(any(), any(), any(), any(), any());
 
         Map<String, ValueSet> constraintsMap = new HashMap<>();
         constraintsMap.put("time", SortedRangeSet.copyOf(Types.MinorType.BIGINT.getType(),
@@ -237,11 +251,13 @@ public class VerticaRecordHandlerTest
         logger.info("doReadRecordsSpill: enter");
         
         VectorSchemaRoot schemaRoot = createRoot();
-        ArrowReader mockReader = mock(ArrowReader.class);
-        when(mockReader.loadNextBatch()).thenReturn(true, false);
-        when(mockReader.getVectorSchemaRoot()).thenReturn(schemaRoot);
         VerticaRecordHandler handlerSpy = spy(handler);
-        doReturn(mockReader).when(handlerSpy).constructArrowReader(any());
+        doAnswer((InvocationOnMock invocation) -> {
+            Consumer<Map<String, Object>> rowConsumer = invocation.getArgument(4);
+            rowConsumer.accept(rowMapFromRoot(schemaRoot, 0));
+            rowConsumer.accept(rowMapFromRoot(schemaRoot, 1));
+            return null;
+        }).when(handlerSpy).forEachExportedRow(any(), any(), any(), any(), any());
 
         Map<String, ValueSet> constraintsMap = new HashMap<>();
         constraintsMap.put("time", SortedRangeSet.copyOf(Types.MinorType.BIGINT.getType(),
@@ -308,6 +324,15 @@ public class VerticaRecordHandlerTest
         {
             return bytes;
         }
+    }
+
+    private static Map<String, Object> rowMapFromRoot(VectorSchemaRoot root, int rowIndex)
+    {
+        Map<String, Object> map = new HashMap<>();
+        for (Field field : root.getSchema().getFields()) {
+            map.put(field.getName(), root.getVector(field).getObject(rowIndex));
+        }
+        return map;
     }
 
     private VectorSchemaRoot createRoot()

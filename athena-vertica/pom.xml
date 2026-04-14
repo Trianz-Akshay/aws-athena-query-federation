@@ -8,6 +8,11 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>athena-vertica</artifactId>
     <version>2022.47.1</version>
+    <properties>
+        <apache.parquet.version>1.17.0</apache.parquet.version>
+        <!-- 3.4+ S3A uses AWS SDK v2; keep hadoop-common and hadoop-aws on the same version -->
+        <apache.hadoop.version>3.4.3</apache.hadoop.version>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -37,10 +42,69 @@
             <artifactId>jcl-over-slf4j</artifactId>
             <version>${slf4j-log4j.version}</version>
         </dependency>
+        <!-- Parquet read is pure-Java (parquet-mr); arrow-dataset uses JNI and breaks on Lambda AL2 (glibc 2.26). -->
         <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-dataset</artifactId>
-            <version>${apache.arrow.version}</version>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>${apache.parquet.version}</version>
+        </dependency>
+        <!-- parquet-hadoop declares Hadoop as provided; avoid full hadoop-client (YARN app client, etc.). -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>${apache.hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Parquet/Hadoop loads mapreduce input types (e.g. FileInputFormat) at runtime; not in hadoop-common. -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-mapreduce-client-core</artifactId>
+            <version>${apache.hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>log4j</groupId>
+                    <artifactId>log4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- S3A: hadoop-aws lists hadoop-common as provided, so we declare both. Exclude awssdk bundle — federation SDK already brings modular AWS SDK v2 (avoids second full SDK in the shaded jar). -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aws</artifactId>
+            <version>${apache.hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>bundle</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.wildfly.openssl</groupId>
+                    <artifactId>wildfly-openssl</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- S3A may load Transfer Manager classes (e.g. ObjectTransfer) via Configuration#getClass; not in core s3.jar. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3-transfer-manager</artifactId>
+            <version>${aws-sdk-v2.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>

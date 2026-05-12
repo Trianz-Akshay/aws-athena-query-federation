@@ -157,10 +157,11 @@ extends <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/ja
 </tr>
 <tr id="i0" class="altColor">
 <td class="colFirst"><code>static <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html?is-external=true" title="class or interface in java.lang" class="externalLink">String</a></code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#buildSql(com.amazonaws.athena.connector.lambda.domain.TableName,org.apache.arrow.vector.types.pojo.Schema,com.amazonaws.athena.connector.lambda.domain.predicate.Constraints,java.util.List)">buildSql</a></span>&#8203;(<a href="../../../connector/lambda/domain/TableName.html" title="class in com.amazonaws.athena.connector.lambda.domain">TableName</a>&nbsp;tableName,
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#buildSql(com.amazonaws.athena.connector.lambda.domain.TableName,org.apache.arrow.vector.types.pojo.Schema,com.amazonaws.athena.connector.lambda.domain.predicate.Constraints,java.util.List,boolean)">buildSql</a></span>&#8203;(<a href="../../../connector/lambda/domain/TableName.html" title="class in com.amazonaws.athena.connector.lambda.domain">TableName</a>&nbsp;tableName,
         org.apache.arrow.vector.types.pojo.Schema&nbsp;schema,
         <a href="../../../connector/lambda/domain/predicate/Constraints.html" title="class in com.amazonaws.athena.connector.lambda.domain.predicate">Constraints</a>&nbsp;constraints,
-        <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html?is-external=true" title="class or interface in java.util" class="externalLink">List</a>&lt;com.google.cloud.bigquery.QueryParameterValue&gt;&nbsp;parameterValues)</code></th>
+        <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html?is-external=true" title="class or interface in java.util" class="externalLink">List</a>&lt;com.google.cloud.bigquery.QueryParameterValue&gt;&nbsp;parameterValues,
+        boolean&nbsp;catalogCasingFilterUpperCase)</code></th>
 <td class="colLast">
 <div class="block">Builds an SQL statement from the schema, table name, split and constraints that can be executable by
  BigQuery using StringTemplate approach.</div>
@@ -198,7 +199,7 @@ extends <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/ja
 <!--   -->
 </a>
 <h3>Method Detail</h3>
-<a id="buildSql(com.amazonaws.athena.connector.lambda.domain.TableName,org.apache.arrow.vector.types.pojo.Schema,com.amazonaws.athena.connector.lambda.domain.predicate.Constraints,java.util.List)">
+<a id="buildSql(com.amazonaws.athena.connector.lambda.domain.TableName,org.apache.arrow.vector.types.pojo.Schema,com.amazonaws.athena.connector.lambda.domain.predicate.Constraints,java.util.List,boolean)">
 <!--   -->
 </a>
 <ul class="blockList">
@@ -207,7 +208,8 @@ extends <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/ja
 <pre class="methodSignature">public static&nbsp;<a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/String.html?is-external=true" title="class or interface in java.lang" class="externalLink">String</a>&nbsp;buildSql&#8203;(<a href="../../../connector/lambda/domain/TableName.html" title="class in com.amazonaws.athena.connector.lambda.domain">TableName</a>&nbsp;tableName,
                               org.apache.arrow.vector.types.pojo.Schema&nbsp;schema,
                               <a href="../../../connector/lambda/domain/predicate/Constraints.html" title="class in com.amazonaws.athena.connector.lambda.domain.predicate">Constraints</a>&nbsp;constraints,
-                              <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html?is-external=true" title="class or interface in java.util" class="externalLink">List</a>&lt;com.google.cloud.bigquery.QueryParameterValue&gt;&nbsp;parameterValues)</pre>
+                              <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/List.html?is-external=true" title="class or interface in java.util" class="externalLink">List</a>&lt;com.google.cloud.bigquery.QueryParameterValue&gt;&nbsp;parameterValues,
+                              boolean&nbsp;catalogCasingFilterUpperCase)</pre>
 <div class="block">Builds an SQL statement from the schema, table name, split and constraints that can be executable by
  BigQuery using StringTemplate approach.</div>
 <dl>
@@ -216,6 +218,7 @@ extends <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/ja
 <dd><code>schema</code> - The schema of the table that we are querying.</dd>
 <dd><code>constraints</code> - The constraints that we want to apply to the query.</dd>
 <dd><code>parameterValues</code> - Query parameter values for parameterized query.</dd>
+<dd><code>catalogCasingFilterUpperCase</code> - true for UPPERCASE_ONLY, false for LOWERCASE_ONLY (default).</dd>
 <dt><span class="returnLabel">Returns:</span></dt>
 <dd>SQL Statement that represents the table, columns, split, and constraints.</dd>
 </dl>

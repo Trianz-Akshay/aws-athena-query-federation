@@ -125,6 +125,7 @@ public class NeptuneMetadataHandler extends GlueMetadataHandler
         super(glue, keyFactory, awsSecretsManager, athena, Constants.SOURCE_TYPE, spillBucket, spillPrefix, configOptions);
         this.glue = glue;
         this.glueDBName = configOptions.get("glue_database_name");
+        this.neptuneConnection = neptuneConnection;
     }
 
     @Override
